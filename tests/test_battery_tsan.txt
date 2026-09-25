@@ -1,0 +1,297 @@
+
+============================================================
+[1/43] 1. Setup
+============================================================
+  ✅ [001] 1.1 binary responds to help
+
+============================================================
+[2/43] 2. basic watch
+============================================================
+  ✅ [002] 2.1 daemon running
+  ✅ [003] 2.2 no initial records
+
+============================================================
+[3/43] 3. undo --last
+============================================================
+  ✅ [004] 3.1 undo --last restores previous version
+
+============================================================
+[4/43] 4. undo --initial
+============================================================
+  ✅ [005] 4.1 undo --initial restores original
+
+============================================================
+[5/43] 5. undo --to (time point & exact dates)
+============================================================
+  ✅ [006] 5.1 undo --to time point restores previous version
+  ✅ [007] 5.2 undo --to with invalid expression fails
+  ✅ [008] 5.3 undo --to exact timestamp restores correct version
+
+============================================================
+[6/43] 6. undo of deleted file
+============================================================
+  ✅ [009] 6.1 undo restores deleted file
+
+============================================================
+[7/43] 7. undo --to after deletion
+============================================================
+  [INFO] 7.1: undo --to timing-sensitive test in normal mode
+  ✅ [010] 7.1 undo --to restores deleted file
+
+============================================================
+[8/43] 8. log
+============================================================
+  ✅ [011] 8.1 log shows CREATE
+  ✅ [012] 8.2 log shows MODIFY
+
+============================================================
+[9/43] 9. status
+============================================================
+  ✅ [013] 9.1 status shows Records
+  ✅ [014] 9.2 status shows daemon running
+
+============================================================
+[10/43] 10. dynamic: hot new file
+============================================================
+  ✅ [015] 10.1 new file: undo --last restores first version
+
+============================================================
+[11/43] 11. dynamic: new subdirectory
+============================================================
+  ✅ [016] 11.1 file in new subdirectory restorable
+
+============================================================
+[12/43] 12. dynamism after restart
+============================================================
+  ✅ [017] 12.1 undo --last after restart
+
+============================================================
+[13/43] 13. Git clone
+============================================================
+  ✅ [018] 13.1 clone present
+  ✅ [019] 13.2 .git/ excluded
+  ✅ [020] 13.3 undo of clone file
+
+============================================================
+[14/43] 14. Binary file
+============================================================
+  ✅ [021] 14.1 binary restored byte by byte
+
+============================================================
+[15/43] 15. Empty file
+============================================================
+  ✅ [022] 15.1 undo restores after truncation to empty
+
+============================================================
+[16/43] 16. compact
+============================================================
+  ✅ [023] 16.1 compact executes
+  ✅ [024] 16.2 undo after compact works (version 20 with content)
+
+============================================================
+[17/43] 17. full directory undo
+============================================================
+  ✅ [025] 17.1 undo dir --last restores a.txt
+  ✅ [026] 17.2 undo dir --last restores sub/c.txt
+
+============================================================
+[18/43] 18. Burst: 50 edits
+============================================================
+  ✅ [027] 18.1 undo --initial after burst
+
+============================================================
+[19/43] 19. Burst: 100 files + concurrency
+============================================================
+  ✅ [028] 19.1 undo --last after concurrency coherent
+
+============================================================
+[20/43] 20. Stress: 500 files
+============================================================
+  ✅ [029] 20.1 500 files captured (500)
+  ✅ [030] 20.2 undo --last on file 250/500
+
+============================================================
+[21/43] 21. Weird names
+============================================================
+  ✅ [031] 21.1 name with spaces
+  ✅ [032] 21.2 name with ñ
+
+============================================================
+[22/43] 22. start / stop / restart
+============================================================
+  ✅ [033] 22.1 start launches daemon
+  ✅ [034] 22.2 daemon running after start
+  ✅ [035] 22.3 duplicate start does not launch another daemon
+  ✅ [036] 22.4 stop stops the daemon
+  ✅ [037] 22.5 daemon stopped after stop
+  ✅ [038] 22.6 restart starts again
+  ✅ [039] 22.7 daemon running after restart
+
+============================================================
+[23/43] 23. enriched status
+============================================================
+  ✅ [040] 23.1 status shows daemon running
+  ✅ [041] 23.2 status shows Records
+  ✅ [042] 23.3 status shows Uptime
+  ✅ [043] 23.4 status without daemon indicates not running
+
+============================================================
+[24/43] 24. tags and undo --tag
+============================================================
+  ✅ [044] 24.1 tag is created
+  ✅ [045] 24.2 tags lists the checkpoint
+  ✅ [046] 24.3 undo --tag restores to checkpoint
+
+============================================================
+[25/43] 25. diff
+============================================================
+  ✅ [047] 25.1 diff shows the change
+
+============================================================
+[26/43] 26. directory undo: confirmation and --force
+============================================================
+  ✅ [048] 26.1 undo dir without confirmation touches nothing
+  ✅ [049] 26.2 undo dir --force restores
+
+============================================================
+[27/43] 27. log --since
+============================================================
+  ✅ [050] 27.1 log --since shows recent events
+  ✅ [051] 27.2 log --since wide range includes everything
+
+============================================================
+[28/43] 28. multi-repo: start + hot add
+============================================================
+  ✅ [052] 28.1 status shows repo A
+  ✅ [053] 28.2 status shows repo B
+  ✅ [054] 28.3 status shows 2 repos
+  ✅ [055] 28.4 repo A log has a.txt
+  ✅ [056] 28.5 repo A log isolated
+  ✅ [057] 28.6 repo B log isolated
+
+============================================================
+[29/43] 29. multi-repo: overlap protection
+============================================================
+  ✅ [058] 29.1 add subdir rejected (overlap)
+  ✅ [059] 29.2 add same dir handled gracefully
+
+============================================================
+[30/43] 30. multi-repo: root lost & recovery
+============================================================
+  ✅ [060] 30.1 status shows ROOT LOST
+  ✅ [061] 30.2 repo A still captures events
+  ✅ [062] 30.3 repo B recovered
+
+============================================================
+[31/43] 31. multi-repo: persistence (repos.list)
+============================================================
+  ✅ [063] 31.1 repos.list re-adopted B
+  ✅ [064] 31.2 repos.list re-adopted C
+  ✅ [065] 31.3 status shows 3 repos
+
+============================================================
+[32/43] 32. multi-repo: add bootstraps daemon
+============================================================
+  ✅ [066] 32.1 add bootstraps daemon
+  ✅ [067] 32.2 daemon is running after add
+
+============================================================
+[33/43] 33. Stampede: parallel add bootstraps ONE daemon
+============================================================
+  ✅ [068] 33.1 exactly ONE daemon adopted all 5 repos
+  ✅ [069] 33.2 status shows 5 repos
+
+============================================================
+[34/43] 34. Global status from any cwd
+============================================================
+  ✅ [070] 34.1 status sin --repo muestra el enjambre
+  ✅ [071] 34.2 lista el repo activo
+
+============================================================
+[35/43] 35. selective stop (repo removal)
+============================================================
+  ✅ [072] 35.1 remove repo B via IPC
+  ✅ [073] 35.2 daemon alive after selective stop
+  ✅ [074] 35.3 swarm now has 2 repos
+  ✅ [075] 35.4 repo B gone from swarm
+  ✅ [076] 35.5 removing primary leaves repo C
+  ✅ [077] 35.6 daemon exited (no repos left)
+
+============================================================
+[36/43] 36. verify
+============================================================
+  [INFO] 36: daemon captured records after 2s (ASan slow mode)
+  ✅ [078] 36.1 verify clean store OK
+  ✅ [079] 36.2 verify detects corrupted store
+
+============================================================
+[37/43] 37. dedup: large file capture + restore
+============================================================
+  ✅ [080] 37.1 large file restored via dedup blocks
+
+============================================================
+[38/43] 38. dedup GC: orphan block cleanup
+============================================================
+  ✅ [081] 38.1 GC removes orphan block and keeps referenced blocks
+
+============================================================
+[39/43] 39. XChaCha20-Poly1305 encryption
+============================================================
+  ✅ [082] 39.1 crypto.meta created
+  ✅ [083] 39.2 encrypted store (no plaintext)
+  ✅ [084] 39.3 encrypted undo restores previous version
+  ✅ [085] 39.4 wrong passphrase rejected
+
+============================================================
+[40/43] 40. Encryption: extended hardening
+============================================================
+  ✅ [086] 40.1 undo restores file truncated to empty in encrypted repo
+  ✅ [087] 40.2 encrypted compact leaves no plaintext
+  ✅ [088] 40.3 undo after encrypted compact works (encrypted_compact_40_20)
+  ✅ [089] 40.4 encrypted dedup creates blocks (33, waited 0s)
+  ✅ [090] 40.5 dedup blocks are encrypted (no plaintext)
+  ✅ [091] 40.6 encrypted dedup undo restores v1
+  ✅ [092] 40.7 compact with wrong key does not delete blocks
+  ✅ [093] 40.8 encrypted GC removes orphan and keeps referenced blocks
+  ✅ [094] 40.9 undo detects corrupted dedup blocks
+  ✅ [095] 40.10 verify detects tampered encrypted .ttd
+  ✅ [096] 40.11 corrupted crypto.meta rejected
+
+============================================================
+[41/43] 41. Valgrind: memory audit
+============================================================
+  [INFO] TSan is active: skipping Valgrind memory audit.
+  [INFO] TSan + Valgrind together is unsupported and can OOM/timeout.
+  ⏭  [096] 41.x Valgrind memory audit (TSan active) (SKIP)
+
+============================================================
+[42/43] 42. undo dir --initial prunes files added after baseline
+============================================================
+  ✅ [097] 42.1 modified file restored to initial content
+  ✅ [098] 42.2 files added after baseline deleted
+  ✅ [099] 42.3 all 7 initial files present
+
+============================================================
+[43/43] 43. dump: dedup large file regression
+============================================================
+  ✅ [100] 43.1 dump executes
+  ✅ [101] 43.2 dump reports one file with history
+  ✅ [102] 43.3 manifest.tsv created
+  ✅ [103] 43.4 manifest contains CREATE_D
+  ✅ [104] 43.5 manifest contains MODIFY
+  ✅ [105] 43.6 v000001 dumped
+  ✅ [106] 43.7 v000001 byte-identical
+  ✅ [107] 43.8 v000002 dumped
+  ✅ [108] 43.9 v000002 byte-identical
+
+============================================================
+  SUMMARY
+============================================================
+  Passed:    108/108
+  Failed:    0
+  Skipped:   1
+  Duration:  13m 16s
+  Log:       test_battery.log
+============================================================
+
+🎉 ALL TESTS PASSED in 13m 16s

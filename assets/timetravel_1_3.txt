@@ -1,0 +1,83 @@
+==============================================================================
+ THE CASE OF THE TWIN PHANTOMS — A FORENSIC INVESTIGATION INTO TIME-TRAVEL v1.3
+==============================================================================
+ By John H. Watson, M.D.
+ Late of the Army Medical Department
+
+ It was a rain-swept Sunday afternoon in September when I found Mr. Sherlock
+ Holmes sitting intently before his old 2007 Core 2 Duo iron-clad machine. The
+ rhythmic, metallic clicking of the ancient mechanical hard drive filled the 
+ room, a sound Holmes often referred to as "the heartbeat of honest silicon."
+
+ "Watson," he said without turning his head, his eyes fixed on a streaming
+ terminal output. "We are dealing with a crime of an architectural nature. A
+ betrayal of the highest order, executed by a sloppy probabilistic swarm."
+
+ "Good heavens, Holmes!" I cried, stepping closer. "Has the memory leaked?"
+
+ "Far worse, my dear fellow. The software has developed a case of split 
+  personality. Look closely at this forensic dump from the test battery."
+  He pointed a lean forefinger at the log printed on the screen:
+
+   No daemon running; starting monolith with '/tmp/repo_1'
+   No daemon running; starting monolith with '/tmp/repo_2'
+   PID: 192878  Repo: /tmp/repo_1
+   PID: 192879  Repo: /tmp/repo_2
+
+ "Do you observe the anomaly, Watson?"
+
+ "I see two distinct Process Identifiers running concurrently," I replied, 
+ adjusting my spectacles. "Both claim to be monitoring separate directories."
+
+ "Exactly! A double monolith!" Holmes struck the wooden desk with his hand.
+ "A monstrous two-headed creature devouring resources! The architecture of 
+ Version 1.3 explicitly demanded a single, central swarm daemon to handle multiple
+ repositories under one roof. Yet, when subjected to a brutal burst of five 
+ simultaneous additions, the system panicked and birthed twin phantoms."
+
+ "But how could such an apparition bypass the ThreadSanitizer?" I asked, 
+ thoroughly bewildered. "TSan remained as silent as the grave."
+
+ "Ah, because TSan only detects internal friction—races over shared variables
+ inside the same memory space," Holmes explained, lighting his pipe. "This was 
+ not a failure of memory alignment, but a race condition over physical disk access.
+ The swarm of free-tier artificial models forgot the most sacred law of the metal: 
+ the law of Mutual Exclusion."
+
+ "Pray, enlighten me, Holmes."
+
+ "It is simple engineering, Watson. When our script launched five commands at 
+ the exact same millisecond, the first two processes looked at the global `.pid` 
+ state file simultaneously. Both saw it empty. Both concluded that no guardian 
+ was awake, and both invoked `fork()` to run in background. It was a race to the 
+ throne, and both won, split-braining our domain layout."
+
+ "A fatal flaw," I murmured. "How did you neutralize it?"
+
+ "Through absolute, non-compromise POSIX discipline," Holmes said, a subtle 
+ smile cutting through the smoke. "I forced the models back into the trinchera 
+ and made them implement an unyielding physical lock. Look at the correction."
+
+ He brought up the newly refactored C11 source code:
+
+   int pid_fd = open(PID_FILE_PATH, O_RDWR | O_CREAT, 0644);
+   if (flock(pid_fd, LOCK_EX | LOCK_NB) != 0) {
+       /* The throne is occupied. Mutate immediately to client mode. */
+       usleep(50000);
+       return tt_ipc_client_send(path);
+   }
+
+ "Brilliant!" I cheered. "If a second phantom attempts to rise, the `flock` 
+ execution blocks it at the kernel level. It falls back to a passive client, 
+ sleeps for fifty milliseconds, and whispers its path through the UNIX domain 
+ socket `.timetravel/timetravel.ipc` instead."
+
+ "Precisely," Holmes concluded, looking out the window as the drive settled 
+ into a pristine 0.0% CPU and 10.8 MiB RAM baseline. "The case is closed. The 
+ models attempted to hide their structural laziness behind synchronous loops, 
+ but we corrected them in forty-five minutes of pure human surveillance. 
+ The Swarm is unified, Watson. Let the metal rest."
+
+==============================================================================
+ [END OF CHRONICLE — v1.3 HARDENED]
+==============================================================================
