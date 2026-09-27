@@ -31,21 +31,30 @@ if [ ! -f third_party/xdelta/xdelta3/xdelta3.c ]; then
     exit 1
 fi
 
-SRC="src/tt_delta.c \
+SRC="src/tt_main.c \
+     src/tt_util.c \
+     src/tt_cache.c \
+     src/tt_history.c \
+     src/tt_capture.c \
+     src/tt_store.c \
+     src/tt_delta.c \
      src/tt_filter.c \
      src/tt_debounce.c \
      src/tt_watcher.c \
-     src/tt_store.c \
-     src/tt_restore.c \
      src/tt_compact.c \
+     src/tt_restore.c \
      src/tt_ipc.c \
-     src/tt_blake2b.c \
      src/tt_dedup.c \
-     src/tt_verify.c \
-     src/tt_kdf.c \
      src/tt_crypto.c \
-     src/tt_main.c"
-
+     src/tt_kdf.c \
+     src/tt_cmds.c \
+     src/tt_repo.c \
+     src/tt_annotation.c \
+     src/tt_autotag.c \
+     src/tt_reconstruct.c \
+     src/tt_exclude.c \
+     src/tt_blake2b.c \
+     src/tt_verify.c"
 
 
 for f in $SRC src/tt_types.h src/tt_ipc.h; do

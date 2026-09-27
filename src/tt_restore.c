@@ -31,6 +31,9 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <limits.h>
+#include "tt_reconstruct.h"
+#include "tt_annotation.h"
+#include "tt_crypto.h"
 
 extern int tt_store_reader_init(void);
 extern int tt_store_reader_next(TtDeltaHeader *h, char *p, size_t ps, uint8_t **pl, size_t *plsz);
@@ -336,7 +339,8 @@ static int write_file_with_parents(const char *path, const uint8_t *data, size_t
  * Baseline support for undo dir --initial
  * ============================================================ */
 
-#define TT_BASELINE_FILE "baseline.list"
+#define TT_BASELINE_FILE "baseline.enc"
+#define TT_BASELINE_FILE_LEGACY "baseline.list"
 
 static int repo_root_from_store_dir(const char *store_dir, char *out, size_t outsz)
 {
@@ -504,6 +508,7 @@ int tt_generate_baseline_from_store_dir(const char *store_dir)
     char repo_root[TT_PATH_MAX];
     char bpath[TT_PATH_MAX];
     char tmp[TT_PATH_MAX + 64];
+    uint8_t key[TT_KEY_LEN];
 
     if (!store_dir)
         return -1;
@@ -514,6 +519,13 @@ int tt_generate_baseline_from_store_dir(const char *store_dir)
     baseline_path(store_dir, bpath, sizeof(bpath));
 
     struct stat st;
+    /* No regenerar si existe baseline legacy (texto plano) */
+    char legacy_path[TT_PATH_MAX];
+    snprintf(legacy_path, sizeof(legacy_path), "%s/%s", store_dir, TT_BASELINE_FILE_LEGACY);
+    struct stat legacy_st;
+    if (stat(legacy_path, &legacy_st) == 0)
+        return 0;
+
     if (stat(bpath, &st) == 0)
         return 0;
 
@@ -531,10 +543,15 @@ int tt_generate_baseline_from_store_dir(const char *store_dir)
         return -1;
     }
 
-    if (rename(tmp, bpath) != 0) {
+    if (tt_repo_get_key(store_dir, key) != 0) {
         unlink(tmp);
         return -1;
     }
+    if (tt_crypto_encrypt_file(tmp, bpath, key) != 0) {
+        unlink(tmp);
+        return -1;
+    }
+    unlink(tmp);
 
     fprintf(stderr, "tt_restore: baseline written (%zu files)\n", written);
     return 0;
@@ -552,7 +569,27 @@ static char **read_baseline(const char *store_dir, size_t *out_count)
     char bpath[TT_PATH_MAX];
     baseline_path(store_dir, bpath, sizeof(bpath));
 
-    FILE *f = fopen(bpath, "r");
+    /* Intentar descifrar baseline.enc primero */
+    char tmp_dec[TT_PATH_MAX];
+    snprintf(tmp_dec, sizeof(tmp_dec), "/tmp/tt_baseline_%d", (int)getpid());
+
+    uint8_t key[TT_KEY_LEN];
+    FILE *f = NULL;
+
+    if (tt_repo_get_key(store_dir, key) == 0) {
+        if (tt_crypto_decrypt_file(bpath, tmp_dec, key) == 0) {
+            f = fopen(tmp_dec, "r");
+            unlink(tmp_dec);
+        }
+    }
+
+    /* Fallback: legacy baseline.list en texto plano */
+    if (!f) {
+        char legacy_path[TT_PATH_MAX];
+        snprintf(legacy_path, sizeof(legacy_path), "%s/%s", store_dir, TT_BASELINE_FILE_LEGACY);
+        f = fopen(legacy_path, "r");
+    }
+
     if (!f) {
         *out_count = 0;
         return NULL;
@@ -728,42 +765,22 @@ int tt_restore_file(const char *store_dir,
                     uint64_t target_ns,
                     const char *out_path)
 {
-    TtRestoreList list;
-
-    if (load_records(file_path, &list) != 0)
-        return -1;
-
-    if (list.count == 0) {
-        restore_list_free(&list);
-        return 1;
-    }
-
-    uint8_t *content = NULL;
-    size_t csz = 0;
+    uint8_t *data = NULL;
+    size_t size = 0;
     int exists = 0;
 
-    int rc = reconstruct_file(store_dir, list.records, list.count,
-                              target_ns, &content, &csz, &exists);
-
-    restore_list_free(&list);
-
-    if (rc != 0)
+    if (tt_reconstruct_file(store_dir, file_path, target_ns,
+                            &data, &size, &exists) != 0)
         return -1;
 
-    if (!exists)
-        return 1;
-
-    if (out_path && write_file_with_parents(out_path, content, csz) != 0) {
-        free(content);
-        return -1;
+    if (!exists) {
+        free(data);
+        return 1;   /* no existía en ese punto */
     }
 
-    fprintf(stderr, "tt_restore: restored %s -> %s (%zu bytes)\n",
-            file_path, out_path ? out_path : "(null)", csz);
-
-    free(content);
-
-    return 0;
+    int rc = write_file_with_parents(out_path, data, size);
+    free(data);
+    return rc == 0 ? 0 : -1;
 }
 
 int tt_restore_dir(const char *store_dir,
@@ -1123,7 +1140,7 @@ int tt_restore_dir_per_file(const char *store_dir,
 
 int tt_list_history(const char *store_dir, const char *file_path)
 {
-    (void)store_dir;
+    
 
     TtRestoreList list;
 
@@ -1164,10 +1181,30 @@ int tt_list_history(const char *store_dir, const char *file_path)
             r->hdr.event_type == TT_EV_DELETE ? "DELETE" :
             r->hdr.event_type == TT_EV_CREATE_DEDUP ? "CREATE_D" : "???";
 
-        printf("  %-20s  %-8s  delta=%10u  file=%10llu  %s\n",
-               ts, ev, r->hdr.delta_size,
-               (unsigned long long)r->hdr.file_size,
-               r->path);
+        /* v1.5: buscar autotag */
+        char _summary[512] = "";
+        tt_annotation_lookup(store_dir, r->path, r->hdr.timestamp_ns,
+                             _summary, sizeof _summary);
+        
+        /* Detectar si el autotag es de un binario (tags raros como #GNU, #ELF, #AWAV) */
+        int is_binary_autotag = _summary[0] && 
+                                (strstr(_summary, "#GNU") || 
+                                 strstr(_summary, "#ELF") ||
+                                 strstr(_summary, "#AWAV") ||
+                                 strstr(_summary, "#AWAVAUATUSL") ||
+                                 strstr(_summary, "#AWAVAUATUSH"));
+        
+        if (_summary[0] && !is_binary_autotag) {
+            /* Formato v1.5 para archivos de texto/código */
+            printf("  %-20s  %-8s  %-50s  %s\n",
+                   ts, ev, _summary, r->path);
+        } else {
+            /* Formato v1.4 para binarios y archivos sin autotag */
+            printf("  %-20s  %-8s  delta=%10u  file=%10llu  %s\n",
+                   ts, ev, r->hdr.delta_size,
+                   (unsigned long long)r->hdr.file_size,
+                   r->path);
+        }
     }
 
     restore_list_free(&list);

@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include "tt_kdf.h"
 #include "tt_blake2b.h"
+#include <stdlib.h>
 
 /* ---------- helpers little-endian ---------- */
 static uint32_t load32_le(const uint8_t *p) {
@@ -405,5 +406,299 @@ int tt_crypto_unlock_repo(const char *store_dir, const uint8_t *pass, size_t pas
         if (diff != 0) return -1; } /* comparación constante */
 
     memcpy(key_out, key, 32);
+    return 0;
+}
+
+/* ============================================================
+   Cifrado de paths (metadatos)
+   ============================================================ */
+
+void tt_path_nonce(uint64_t path_index, uint64_t timestamp_ns,
+                   uint8_t nonce[TT_NONCE_LEN])
+{
+    uint8_t input[16];
+    store64_le(input, path_index);
+    store64_le(input + 8, timestamp_ns);
+    
+    /* BLAKE2b(input, 16) → 24 bytes de nonce */
+    uint8_t hash[32];
+    tt_blake2b(input, 16, hash, 32);
+    memcpy(nonce, hash, TT_NONCE_LEN);
+}
+
+int tt_encrypt_path(const uint8_t key[TT_KEY_LEN],
+                    uint64_t path_index, uint64_t timestamp_ns,
+                    uint8_t event_type,
+                    const char *path, size_t path_len,
+                    uint8_t *ct, uint8_t tag[TT_TAG_LEN])
+{
+    uint8_t nonce[TT_NONCE_LEN];
+    tt_path_nonce(path_index, timestamp_ns, nonce);
+    
+    /* AAD: event_type || timestamp_ns (autentica el contexto) */
+    uint8_t aad[9];
+    aad[0] = event_type;
+    store64_le(aad + 1, timestamp_ns);
+    
+    return tt_aead_encrypt(key, nonce, aad, sizeof aad,
+                           (const uint8_t *)path, path_len,
+                           ct, tag);
+}
+
+int tt_decrypt_path(const uint8_t key[TT_KEY_LEN],
+                    uint64_t path_index, uint64_t timestamp_ns,
+                    uint8_t event_type,
+                    const uint8_t *ct, size_t ct_len,
+                    const uint8_t tag[TT_TAG_LEN],
+                    char *path_out, size_t path_out_sz)
+{
+    uint8_t nonce[TT_NONCE_LEN];
+    tt_path_nonce(path_index, timestamp_ns, nonce);
+    
+    uint8_t aad[9];
+    aad[0] = event_type;
+    store64_le(aad + 1, timestamp_ns);
+    
+    uint8_t pt[TT_PATH_MAX];
+    if (ct_len > sizeof pt)
+        return -1;
+    
+    int rc = tt_aead_decrypt(key, nonce, aad, sizeof aad,
+                             ct, ct_len, tag, pt);
+    if (rc != 0)
+        return -1;
+    
+    size_t copy = ct_len < path_out_sz - 1 ? ct_len : path_out_sz - 1;
+    memcpy(path_out, pt, copy);
+    path_out[copy] = '\0';
+    return 0;
+}
+
+
+/* ============================================================
+   Clave de repo (transparente, sin passphrase)
+   ============================================================ */
+
+int tt_repo_get_key(const char *store_dir, uint8_t key_out[TT_KEY_LEN])
+{
+    char key_path[TT_PATH_MAX];
+    snprintf(key_path, sizeof key_path, "%s/repo.key", store_dir);
+
+    /* Intentar leer clave existente */
+    int fd = open(key_path, O_RDONLY);
+    if (fd >= 0) {
+        ssize_t r = read(fd, key_out, TT_KEY_LEN);
+        close(fd);
+        if (r == TT_KEY_LEN)
+            return 0;
+    }
+
+    /* Generar nueva clave aleatoria */
+    fd = open("/dev/urandom", O_RDONLY);
+    if (fd < 0)
+        return -1;
+    if (read(fd, key_out, TT_KEY_LEN) != TT_KEY_LEN) {
+        close(fd);
+        return -1;
+    }
+    close(fd);
+
+    /* Guardar con permisos 0600 */
+    fd = open(key_path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (fd < 0)
+        return -1;
+    if (write(fd, key_out, TT_KEY_LEN) != TT_KEY_LEN) {
+        close(fd);
+        return -1;
+    }
+    close(fd);
+
+    return 0;
+}
+
+/* ============================================================
+   Cifrado / descifrado de archivos completos
+   ============================================================ */
+
+#define TT_ENC_MAGIC "TTENC01"
+#define TT_ENC_MAGIC_LEN 7
+
+int tt_crypto_encrypt_file(const char *plaintext_path,
+                           const char *encrypted_path,
+                           const uint8_t key[TT_KEY_LEN])
+{
+    /* Leer plaintext */
+    FILE *f = fopen(plaintext_path, "rb");
+    if (!f)
+        return -1;
+
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    if (size < 0) {
+        fclose(f);
+        return -1;
+    }
+
+    uint8_t *data = NULL;
+    if (size > 0) {
+        data = malloc((size_t)size);
+        if (!data) {
+            fclose(f);
+            return -1;
+        }
+        if (fread(data, 1, (size_t)size, f) != (size_t)size) {
+            free(data);
+            fclose(f);
+            return -1;
+        }
+    }
+    fclose(f);
+
+    /* Nonce aleatorio */
+    uint8_t nonce[TT_NONCE_LEN];
+    int fd = open("/dev/urandom", O_RDONLY);
+    if (fd < 0) {
+        free(data);
+        return -1;
+    }
+    if (read(fd, nonce, TT_NONCE_LEN) != TT_NONCE_LEN) {
+        close(fd);
+        free(data);
+        return -1;
+    }
+    close(fd);
+
+    /* Cifrar */
+    uint8_t *ct = NULL;
+    uint8_t tag[TT_TAG_LEN];
+    if (size > 0) {
+        ct = malloc((size_t)size);
+        if (!ct) {
+            free(data);
+            return -1;
+        }
+        if (tt_aead_encrypt(key, nonce, NULL, 0,
+                            data, (size_t)size, ct, tag) != 0) {
+            free(data);
+            free(ct);
+            return -1;
+        }
+    } else {
+        /* Archivo vacío: cifrar 0 bytes */
+        if (tt_aead_encrypt(key, nonce, NULL, 0,
+                            NULL, 0, NULL, tag) != 0) {
+            free(data);
+            return -1;
+        }
+    }
+    free(data);
+
+    /* Escribir: magic || nonce || tag || ct */
+    FILE *out = fopen(encrypted_path, "wb");
+    if (!out) {
+        free(ct);
+        return -1;
+    }
+
+    fwrite(TT_ENC_MAGIC, 1, TT_ENC_MAGIC_LEN, out);
+    fwrite(nonce, 1, TT_NONCE_LEN, out);
+    fwrite(tag, 1, TT_TAG_LEN, out);
+    if (size > 0 && ct)
+        fwrite(ct, 1, (size_t)size, out);
+    fclose(out);
+    free(ct);
+
+    /* Permisos 0600: solo el dueño puede leer */
+    chmod(encrypted_path, 0600);
+
+    return 0;
+}
+
+int tt_crypto_decrypt_file(const char *encrypted_path,
+                           const char *plaintext_path,
+                           const uint8_t key[TT_KEY_LEN])
+{
+    FILE *f = fopen(encrypted_path, "rb");
+    if (!f)
+        return -1;
+
+    /* Leer header: magic || nonce || tag */
+    uint8_t header[TT_ENC_MAGIC_LEN + TT_NONCE_LEN + TT_TAG_LEN];
+    if (fread(header, 1, sizeof header, f) != sizeof header) {
+        fclose(f);
+        return -1;
+    }
+
+    if (memcmp(header, TT_ENC_MAGIC, TT_ENC_MAGIC_LEN) != 0) {
+        fclose(f);
+        return -1;
+    }
+
+    uint8_t *nonce = header + TT_ENC_MAGIC_LEN;
+    uint8_t *tag = nonce + TT_NONCE_LEN;
+
+    /* Leer ciphertext */
+    fseek(f, 0, SEEK_END);
+    long total = ftell(f);
+    fseek(f, (long)sizeof header, SEEK_SET);
+    long ct_size = total - (long)sizeof header;
+
+    if (ct_size < 0) {
+        fclose(f);
+        return -1;
+    }
+
+    uint8_t *ct = NULL;
+    uint8_t *pt = NULL;
+    if (ct_size > 0) {
+        ct = malloc((size_t)ct_size);
+        pt = malloc((size_t)ct_size);
+        if (!ct || !pt) {
+            free(ct);
+            free(pt);
+            fclose(f);
+            return -1;
+        }
+        if (fread(ct, 1, (size_t)ct_size, f) != (size_t)ct_size) {
+            free(ct);
+            free(pt);
+            fclose(f);
+            return -1;
+        }
+    }
+    fclose(f);
+
+    /* Descifrar */
+    if (ct_size > 0) {
+        if (tt_aead_decrypt(key, nonce, NULL, 0,
+                            ct, (size_t)ct_size, tag, pt) != 0) {
+            free(ct);
+            free(pt);
+            return -1;
+        }
+    } else {
+        /* Archivo vacío */
+        if (tt_aead_decrypt(key, nonce, NULL, 0,
+                            NULL, 0, tag, NULL) != 0) {
+            free(ct);
+            free(pt);
+            return -1;
+        }
+    }
+    free(ct);
+
+    /* Escribir plaintext */
+    FILE *out = fopen(plaintext_path, "wb");
+    if (!out) {
+        free(pt);
+        return -1;
+    }
+    if (ct_size > 0 && pt)
+        fwrite(pt, 1, (size_t)ct_size, out);
+    fclose(out);
+    free(pt);
+
     return 0;
 }

@@ -1,6 +1,8 @@
 ==============================================================================
-TIME-TRAVEL CLI v1.4 - DEDUP + CRYPTO CORE
+TIME-TRAVEL CLI v1.5 - AUTOTAGS + METADATA ENCRYPTION
 Pure C11 engine. Static binary. Linux only.
+
+"TimeTravel is for the battle; Git is for after the battle."
 ==============================================================================
 
 "Serious versioning for those who want Ctrl+Z across their entire project."
@@ -11,10 +13,10 @@ Binary:      Static CLI (musl-gcc + integrated xdelta3, BLAKE2b and crypto).
 Format:      TTDLTA01, packed little-endian records with xdelta3 deltas.
              Optional XChaCha20-Poly1305 payload encryption.
              Optional BLAKE2b content-addressed 64 KiB dedup blocks.
-Status:      Production. Core validated with 116/116 assertions across 43 sections.
-             Functional battery: 108 assertions.
+Status:      Production. Core validated with 124/124 assertions across 44 sections.
+             Functional battery: 116 assertions.
              Dedicated Valgrind memory audit: 8 assertions.
-             TSan mode evaluates the 108 functional assertions and skips the
+             TSan mode evaluates the 116 functional assertions and skips the
              Valgrind memory audit automatically.
 
 v1.4:        DEDUP + ENCRYPTION.
@@ -23,10 +25,19 @@ v1.4:        DEDUP + ENCRYPTION.
              XChaCha20-Poly1305. Adds store verification, atomic
              compaction, orphan-block GC and hardened failure paths.
 
+v1.5:        AUTOTAGS + METADATA ENCRYPTION.
+             Semantic auto-tags in log output (+1/-1 lines 3
+             #max_retries). Transparent metadata encryption:
+             annotations.enc, baseline.enc, exclude.enc are
+             AEAD-encrypted with a per-repo key. Modular
+             architecture refactor: tt_capture, tt_repo,
+             tt_cmds, tt_reconstruct, tt_exclude, tt_autotag,
+             tt_annotation. Unified reconstruction engine.
+
 ==============================================================================
 DEVELOPMENT AND TESTING ENVIRONMENT
 ==============================================================================
-All code and the 116-assertion / 43-section regression battery were developed and validated on the
+All code and the 116-assertion / 44-section regression battery were developed and validated on the
 following hardware, without access to modern machines during the process:
 
 CPU:       Intel Core 2 Duo T7500 @ 2.20 GHz (2 cores, year 2007)
@@ -38,7 +49,7 @@ Toolchain: musl-gcc, gcc sanitizer builds, xdelta3, Valgrind
 Key results on this hardware:
 
 - 108 functional regression assertions passing in normal mode.
-- 116/116 assertions passing when the dedicated Valgrind memory audit is included.
+- 124/124 assertions passing when the dedicated Valgrind memory audit is included.
 - TSan mode: 108 evaluated assertions + 1 skipped Valgrind section.
 - AddressSanitizer / UndefinedBehaviorSanitizer audit builds available.
 - ThreadSanitizer audit build available.
@@ -67,6 +78,9 @@ Compile:
 
 Watch a single directory (starts the monolith):
 ./build/timetravel start /path/to/project
+
+or multiple directory at start:
+./build/timetravel start src/ bin/
 
 Add MORE repositories hot to the same daemon:
 ./build/timetravel add /path/to/another/project
@@ -134,7 +148,7 @@ Run sanitizer and concurrency audits:
     # ThreadSanitizer
     ./compile_tsan.sh
     TSAN_OPTIONS="halt_on_error=1:second_deadlock_stack=1" \
-        ./mega_test.sh ./build_tsan/timetravel
+    ./mega_test.sh ./build_tsan/timetravel
 
 Important:
 - Do not combine Valgrind with ASan or TSan.
@@ -175,6 +189,8 @@ Important:
 13. Possible Issues
 14. Dedup block storage (V1.4)
 15. Encryption (V1.4)
+    15.1 Semantic Autotags (V1.5)
+    15.2 Metadata Encryption (V1.5)
 16. FAQ - Frequently Asked Questions
     16.1 Can i use time-travel on windows or mac?
     16.2 Does it work over nfs / sshfs / network mounts?
@@ -191,8 +207,9 @@ Important:
     16.13 Can i use exact dates from the log?
 17. Comparison with Other Tools
 18. Resuming a Session
-19. Changelog
-20. Timetravel license
+19. Anecdote
+20. Changelog
+21. Timetravel license
 
 ==============================================================================
 1. WHAT IS TIME-TRAVEL
@@ -231,10 +248,10 @@ Dedup and encryption (v1.4):
 Reliability and hygiene:
 - Robust exclusions: .git, node_modules, __pycache__, target, .cache.
 - Enhanced status showing daemon state, CPU, RAM, records, and bytes.
-- Self-cleaning test battery: 116 assertions across 43 sections.
+- Self-cleaning test battery: 124 assertions across 44 sections.
 - Audited with ASan/UBSan, ThreadSanitizer and Valgrind (0 leaks).
 
-The final CLI binary is static, approximately 250 KB (includes statically
+The final CLI binary is static, approximately 274 KB (includes statically
 compiled xdelta3, BLAKE2b, and the XChaCha20-Poly1305 crypto core), with
 zero external runtime dependencies.
 
@@ -270,8 +287,16 @@ The engine is organized in C11 modules with clear responsibilities.
 |                     | record chain consistency, CREATE size checks,        |
 |                     | CREATE_DEDUP block/hash verification, MODIFY delta   |
 |                     | decoding, corruption counters                        |
-| tt_main.c           | CLI entry point, monolith orchestration, commands,   |
-|                     | cache, PID handling, verify/compact/encrypt support  |
+| tt_main.c           | CLI entry point, daemon loop, monolith orchestration |
+| tt_capture.c        | v1.5: capture pipeline (create/version records,      |
+|                     | capture_path, cache/rescan, autotag generation)      |
+| tt_repo.c           | v1.5: repo lifecycle (start/stop/add, adoption)      |
+| tt_cmds.c           | v1.5: CLI command handlers (log, status, undo, diff) |
+| tt_reconstruct.c    | v1.5: unified reconstruction engine (replaces        |
+|                     | duplicated logic in restore/diff/dump/verify)        |
+| tt_exclude.c        | v1.5: exclude pattern management (encrypted storage) |
+| tt_autotag.c        | v1.5: semantic auto-tag generation from deltas       |
+| tt_annotation.c     | v1.5: annotation persistence (encrypted annotations) |
 +---------------------+------------------------------------------------------+
 
 ==============================================================================
@@ -423,10 +448,63 @@ In addition, v1.3 keeps a PER-USER global registry:
     boot.lock            flock used to serialize concurrent startups
 
 
-NOTE: baseline.list is stored PER-REPOSITORY, not globally:
-<repo>/.timetravel/baseline.list
-                     v1.4: relative paths of files present at initial
-                     capture (used by undo dir --initial for pruning)
+v1.5 metadata files (all AEAD encrypted with per-repo key):
+annotations.enc    Per-record semantic autotags
+baseline.enc       Baseline file paths (for undo dir --initial)
+exclude.enc        Exclusion patterns
+repo.key           32-byte per-repo encryption key (0600)
+
+NOTE: baseline.enc is stored PER-REPOSITORY, not globally:
+<repo>/.timetravel/baseline.enc
+
+v1.5 - AUTOTAGS + METADATA ENCRYPTION:
++ SEMANTIC AUTOTAGS:
+  - log output now shows semantic tags for each event:
+    MODIFY  +1/-1 lines 3 #max_retries  worker.c
+  - Tags extracted from changed lines only (not the whole file).
+  - Token extraction excludes language keywords and common tokens.
+  - Maximum 4 tags per event, sorted by frequency.
+  - Annotations stored in .timetravel/annotations.enc (AEAD encrypted).
+
++ TRANSPARENT METADATA ENCRYPTION:
+  - annotations.tsv -> annotations.enc (encrypted)
+  - baseline.list -> baseline.enc (encrypted)
+  - exclude.list -> exclude.enc (encrypted)
+  - Per-repo 32-byte key auto-generated in .timetravel/repo.key
+  - XChaCha20-Poly1305 AEAD with random nonce per file.
+  - Zero user interaction: encryption is fully transparent.
+  - Backward compatible: legacy plaintext files are still readable.
+
++ MODULAR ARCHITECTURE REFACTOR:
+  - tt_capture.c: capture pipeline extracted from tt_main.c
+  - tt_repo.c: repo lifecycle management
+  - tt_cmds.c: CLI command handlers
+  - tt_reconstruct.c: unified reconstruction engine
+  - tt_exclude.c: exclude pattern management
+  - tt_autotag.c: semantic tag generation
+  - tt_annotation.c: annotation persistence
+
++ UNIFIED RECONSTRUCTION ENGINE:
+  - Single tt_reconstruct_file() replaces 4 duplicated implementations
+  - Used by: undo, diff, dump, verify
+  - Supports CREATE, MODIFY, DELETE, CREATE_DEDUP events
+  - Proper error propagation for corrupted dedup blocks
+
++ STATUS ENHANCEMENT:
+  - Global status now shows Records: line
+
++ TEST BATTERY EXPANDED:
+  - 124 assertions across 44 sections (was 116/43)
+  - Section 44: exclude pattern persistence and encryption
+
++ COMPILATION SCRIPTS UPDATED:
+  - compile.sh, compile_asan.sh, compile_tsan.sh, compile_valgrind.sh
+  - All include new source files
+
+
+v1.4: relative paths of files present at initial
+capture (used by undo dir --initial for pruning)
+v1.5: encrypted with XChaCha20-Poly1305
 
 ==============================================================================
 4. BINARY FORMAT
@@ -772,21 +850,21 @@ Practical examples:
         tail -n +2 /tmp/tt_tui/manifest.tsv | wc -l
 
 ==============================================================================
-10. CODE QUALITY AND COVERAGE (116 ASSERTIONS / 43 SECTIONS)
+10. CODE QUALITY AND COVERAGE (124 ASSERTIONS / 44 SECTIONS)
 ==============================================================================
 
-Time-Travel v1.4 includes a 43-section regression battery.
+Time-Travel v1.4 includes a 44-section regression battery.
 
 The battery is split into:
 
-- 108 functional assertions (sections 1-40 + sections 42-43).
+- 116 functional assertions (sections 1-40 + sections 42-43).
 - 8 Valgrind memory-audit assertions (section 41).
 
 When the battery is executed against a ThreadSanitizer build, the Valgrind
 memory-audit section is automatically skipped. In that mode the summary
 normally shows:
 
-  Passed:    108/108
+  Passed:    116/116
   Failed:    0
   Skipped:   1
 
@@ -831,6 +909,7 @@ Section  40:      Encryption hardening
 Section  41:      Valgrind memory audit
 Section  42:      undo dir --initial baseline prune
 Section  43:      dump dedup large file regression (CREATE_D + MODIFY)
+Section  44:      exclude pattern persistence and encryption
 
 The battery is self-cleaning: it kills any leftover daemons and clears the
 global registry on startup and on exit, so orphan processes from previous
@@ -843,10 +922,10 @@ runs (or manual testing) cannot pollute a run.
 +--------------------------------+----------+--------------------------------+
 | Test                           | Result   | What it demonstrates           |
 +--------------------------------+----------+--------------------------------+
-| Full battery                   | 116/116  | Functional + Valgrind audit    |
-| Functional battery             | 108/108  | Core, dedup, crypto, verify,   |
+| Full battery                   | 124/124  | Functional + Valgrind audit    |
+| Functional battery             | 116/116  | Core, dedup, crypto, verify,   |
 |                                |          | dump regression                |
-| TSan battery                   | 108/108+1| Valgrind skipped under TSan    |
+| TSan battery                   | 116/116+1| Valgrind skipped under TSan    |
 | ASan/UBSan build               | PASS     | Memory errors / UB detection   |
 | ThreadSanitizer                | PASS     | No data-race reports           |
 | Valgrind memory audit          | PASS     | 0 leaks, 0 errors              |
@@ -1267,9 +1346,9 @@ Use the ASan build for ASan/UBSan testing and a native/Valgrind build for
 Valgrind memory auditing.
 
 
-mega_test shows Passed: 108/108 and Skipped: 1 under TSan:
+mega_test shows Passed: 116/116 and Skipped: 1 under TSan:
 
-This is expected. The 108 functional assertions are evaluated, and the
+This is expected. The 116 functional assertions are evaluated, and the
 Valgrind memory audit section is skipped because TSan is active.
 
 ==============================================================================
@@ -1364,6 +1443,80 @@ Important:
 - Tampered crypto.meta is rejected.
 
 
+==============================================================================
+15.1 SEMANTIC AUTOTAGS (V1.5)
+==============================================================================
+Time-Travel v1.5 automatically generates semantic tags for every capture
+event. These autotags appear in the `log` command output:
+
+  MODIFY    +1/-1 lines 3 #max_retries                          worker.c
+  CREATE    CREATE (176 B) #futex_lock #PTHREAD_MUTEX_INITIALIZER  worker.c
+
+Format:
+  <EVENT>  <quantity> <range> <tags>  <path>
+
+Quantity:
+  +A/-R lines    Lines added/removed (or replaced)
+  EDIT [Lx]      Content modified without changing the line count
+
+Range:
+  N              Single affected line
+  N-M            Range of affected lines
+
+Tags:
+  #identifier    Relevant identifiers extracted ONLY from the changed
+                 lines (maximum 4, sorted by frequency).
+                 Language keywords and common tokens are excluded.
+
+Storage:
+  Autotags are stored in .timetravel/annotations.enc (AEAD encrypted).
+  Internal format: timestamp_ns \t path \t summary \n
+
+Files:
+  tt_autotag.c       Tag generation (tokenization, ranking)
+  tt_autotag.h       Public API
+  tt_annotation.c    Encrypted annotation persistence
+  tt_annotation.h    Public API
+
+==============================================================================
+15.2 METADATA ENCRYPTION (V1.5)
+==============================================================================
+v1.5 automatically encrypts repository metadata files.
+The encryption is TRANSPARENT: the user does not need to do anything.
+
+Encrypted files:
+  annotations.enc    Per-record autotags (formerly: annotations.tsv)
+  baseline.enc       Baseline file paths (formerly: baseline.list)
+  exclude.enc        Exclusion patterns (formerly: exclude.list)
+
+Repository key:
+  Each repo has a 32-byte key automatically generated in
+  .timetravel/repo.key (0600 permissions).
+  This key is used to encrypt/decrypt metadata.
+  The user NEVER needs to interact with this key.
+
+Encrypted file format:
+  "TTENC01" || nonce(24) || tag(16) || ciphertext
+
+Algorithm:
+  XChaCha20-Poly1305 AEAD (same primitive as payload encryption).
+
+Backward compatibility:
+  If legacy plaintext files exist (annotations.tsv, baseline.list,
+  exclude.list), they are read directly. New files are always written
+  encrypted.
+
+Security:
+  - An attacker with disk access sees only random bytes.
+  - The repo.key has 0600 permissions (owner only).
+  - If repo.key is lost, metadata cannot be recovered.
+  - File content remains protected by payload encryption (v1.4) or
+    plain deltas.
+
+Functions:
+  tt_repo_get_key()           Generates/reads the repo key
+  tt_crypto_encrypt_file()    Encrypts a complete file
+  tt_crypto_decrypt_file()    Decrypts a complete file
 
 ==============================================================================
 16. FAQ - FREQUENTLY ASKED QUESTIONS
@@ -1373,6 +1526,7 @@ Important:
 16.1 CAN I USE TIME-TRAVEL ON WINDOWS OR MAC?
 ==============================================================================
 NO. Time-Travel uses Linux kernel-specific interfaces:
+
 - inotify for filesystem events
 - timerfd for periodic ticks
 - rename() atomicity guarantees (POSIX)
@@ -1552,7 +1706,7 @@ This restores the file to the exact state recorded at that second.
 | Purpose            | Real-time   | Version  | Backup   | Backup   |
 |                    | file undo   | control  |          |          |
 | Language           | Pure C11    | C/Perl   | Go       | Pure C11 |
-| Static binary      | ~250 KB     | ~40 MB   | ~40 MB   | ~2.1 MB  |
+| Static binary      | ~274 KB     | ~40 MB   | ~40 MB   | ~2.1 MB  |
 | Runtime deps       | NONE        | perl     | none     | none     |
 | Real-time capture  | YES (inotify)| NO      | NO       | NO       |
 | Multi-repo daemon  | YES (v1.3)  | NO       | NO       | NO       |
@@ -1604,8 +1758,64 @@ There is no specific "session continue" command. The session resumes when
 you run "start" again over the same repository.
 
 ==============================================================================
-19. CHANGELOG
+19. ANECDOTE
 ==============================================================================
+Let me tell you an anecdote about Baresnap and Timetravel. I was in "flow mode"
+in an open chat without logging in or anything-terating with an AI. After a few hours, 
+the browser crashed, and i thought, "Oh no... I just lost the changelog, and the AI knew it." 
+
+I reopened the browser, started a new chat, and told the AI what had happened. It replied, 
+"Hey, if you had Timetravel enabled, you just need to dump the diffs; send them to me, and 
+i'll generate the changelog." I sent the diffs using the `dump --diff` command, the AI 
+analyzed them and created the changelog, and it worked!
+
+==============================================================================
+20. CHANGELOG
+==============================================================================
+v1.5 - AUTOTAGS + METADATA ENCRYPTION:
++ SEMANTIC AUTOTAGS:
+  - log output now shows semantic tags for each event:
+      MODIFY  +1/-1 lines 3 #max_retries  worker.c
+  - Tags extracted from changed lines only (not the whole file).
+  - Token extraction excludes language keywords and common tokens.
+  - Maximum 4 tags per event, sorted by frequency.
+  - Annotations stored in .timetravel/annotations.enc (AEAD encrypted).
+
++ TRANSPARENT METADATA ENCRYPTION:
+  - annotations.tsv -> annotations.enc (encrypted)
+  - baseline.list -> baseline.enc (encrypted)
+  - exclude.list -> exclude.enc (encrypted)
+  - Per-repo 32-byte key auto-generated in .timetravel/repo.key (0600).
+  - XChaCha20-Poly1305 AEAD with random nonce per file.
+  - Zero user interaction: encryption is fully transparent.
+  - Backward compatible: legacy plaintext files are still readable.
+
++ MODULAR ARCHITECTURE REFACTOR:
+  - tt_capture.c: capture pipeline extracted from tt_main.c
+  - tt_repo.c: repo lifecycle management
+  - tt_cmds.c: CLI command handlers
+  - tt_reconstruct.c: unified reconstruction engine
+  - tt_exclude.c: exclude pattern management
+  - tt_autotag.c: semantic tag generation
+  - tt_annotation.c: annotation persistence
+
++ UNIFIED RECONSTRUCTION ENGINE:
+  - Single tt_reconstruct_file() replaces 4 duplicated implementations
+  - Used by: undo, diff, dump, verify
+  - Supports CREATE, MODIFY, DELETE, CREATE_DEDUP events
+  - Proper error propagation for corrupted dedup blocks
+
++ STATUS ENHANCEMENT:
+  - Global status now shows Records: line
+
++ TEST BATTERY EXPANDED:
+  - 124 assertions across 44 sections (was 116/43)
+  - Section 44: exclude pattern persistence and encryption
+
++ COMPILATION SCRIPTS UPDATED:
+  - compile.sh, compile_asan.sh, compile_tsan.sh, compile_valgrind.sh
+  - All include new source files
+
 v1.4 - DEDUP + CRYPTO CORE:
 + v1.4 manual corrections:
 + dump supports TT_EV_CREATE_DEDUP:
@@ -1624,9 +1834,8 @@ v1.4 - DEDUP + CRYPTO CORE:
   not in the baseline are deleted.
 
 + Test battery expanded to 116 assertions across 43 sections.
-Section 43 validates dump reconstruction of CREATE_DEDUP files.
+  Section 43 validates dump reconstruction of CREATE_DEDUP files.
   Section 42 validates baseline prune behaviour.
-
 
 + TSan support:
   - compile_tsan.sh builds a ThreadSanitizer-instrumented binary.
@@ -1708,7 +1917,6 @@ visible because they are required for history indexing and restoration.
   Encrypted dedup restore fails gracefully when blocks are missing,
   corrupted, or cannot be authenticated.
 
-
 + New test sections:
   - Section 36: store verification
   - Section 37: dedup large file capture + restore
@@ -1717,13 +1925,12 @@ visible because they are required for history indexing and restoration.
   - Section 40: encryption hardening
 
 Compatibility notes:
-
-- Unencrypted TTDLTA01 stores remain readable.
-- Encrypted repositories require the correct passphrase and a valid
-  crypto.meta file.
-- New TT_EV_CREATE_DEDUP records require a v1.4-aware reader.
-- Encryption authenticates headers and paths via AAD but does not
-  encrypt them. Paths, timestamps and sizes remain visible.
+  - Unencrypted TTDLTA01 stores remain readable.
+  - Encrypted repositories require the correct passphrase and a valid
+    crypto.meta file.
+  - New TT_EV_CREATE_DEDUP records require a v1.4-aware reader.
+  - Encryption authenticates headers and paths via AAD but does not
+    encrypt them. Paths, timestamps and sizes remain visible.
 
 v1.3 - MULTI-REPO HOT CORE:
 + MULTI-REPO MONOLITH: a single daemon now watches up to TT_MAX_REPOS (16)
@@ -1799,7 +2006,7 @@ v1.0:
 + Developed and validated on Intel Core 2 Duo (2007 hardware)
 
 ==============================================================================
-20. TIMETRAVEL LICENSE
+21. TIMETRAVEL LICENSE
 ==============================================================================
 - SOURCE CODE (src/): Under the GNU General Public Licence v3.0 (GPLv3).
 - MANUAL and ASSETS: Licensed under the GNU Free Documentation Licence (GFDL v1.3).

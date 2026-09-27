@@ -16,8 +16,9 @@
  "Good heavens, Holmes!" I cried, stepping closer. "Has the memory leaked?"
 
  "Far worse, my dear fellow. The software has developed a case of split 
-  personality. Look closely at this forensic dump from the test battery."
-  He pointed a lean forefinger at the log printed on the screen:
+ personality. Look closely at this forensic volcado from the test battery."
+
+ He pointed a lean forefinger at the log printed on the screen:
 
    No daemon running; starting monolith with '/tmp/repo_1'
    No daemon running; starting monolith with '/tmp/repo_2'

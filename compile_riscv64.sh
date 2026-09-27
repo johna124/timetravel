@@ -1,19 +1,19 @@
 #!/bin/bash
 # ============================================================
-# Time-Travel CLI — compile_arm64.sh (The Spartan Musl Edition)
-# Cross-compiles for ARM64 (AArch64) using the musl.cc toolchain.
+# Time-Travel CLI — compile_riscv64.sh (The Spartan Musl Edition)
+# Cross-compiles for RISC-V 64-bit using the musl.cc toolchain.
 # ============================================================
 
 set -euo pipefail
 
 CROSS_DIR="$HOME/cross-tools"
-CC="aarch64-linux-musl-gcc"
-STRIP_BIN="aarch64-linux-musl-strip"
-TARGET="arm64"
+CC="riscv64-linux-musl-gcc"
+STRIP_BIN="riscv64-linux-musl-strip"
+TARGET="riscv64"
 
 # Inclusión automática del toolchain local en el PATH
-if [ -d "$CROSS_DIR/aarch64-linux-musl-cross/bin" ]; then
-    export PATH="$CROSS_DIR/aarch64-linux-musl-cross/bin:$PATH"
+if [ -d "$CROSS_DIR/riscv64-linux-musl-cross/bin" ]; then
+    export PATH="$CROSS_DIR/riscv64-linux-musl-cross/bin:$PATH"
 fi
 
 MAP_FLAGS="-ffile-prefix-map=$(pwd)=."
@@ -22,24 +22,24 @@ MAP_FLAGS="-ffile-prefix-map=$(pwd)=."
 export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1788118500}"
 export ZERO_AR_DATE=1
 
-echo "⚙️ Target: ARM64 / AArch64 (Raspberry Pi 4/5, AWS Graviton) - Forcing Musl Cross-Compilation."
+echo "⚙️ Target: RISC-V 64-bit (Time-Travel) - Forcing direct Musl Cross-Compilation."
 echo "🔒 Deterministic build frozen at epoch: $SOURCE_DATE_EPOCH"
 echo ""
 
-# Verification and auto-installation of the musl.cc arm64 toolchain
+# Verification and auto-installation of the musl.cc toolchain
 if ! command -v "$CC" >/dev/null 2>&1; then
     echo "⚠️  WARNING: Cross-compiler $CC not found in PATH."
-    echo "⚙️  Starting automatic download of the spartan musl.cc toolchain for ARM64..."
+    echo "⚙️  Starting automatic download of the spartan musl.cc toolchain..."
     mkdir -p "$CROSS_DIR"
     cd "$CROSS_DIR"
-    if [ ! -f "aarch64-linux-musl-cross.tgz" ]; then
-        echo "📥 Downloading ~100 MB of ARM64 cross-compiler from musl.cc..."
-        wget -q --show-progress https://musl.cc/aarch64-linux-musl-cross.tgz
+    if [ ! -f "riscv64-linux-musl-cross.tgz" ]; then
+        echo "📥 Downloading ~100 MB of pure silicon from musl.cc..."
+        wget -q --show-progress https://musl.cc/riscv64-linux-musl-cross.tgz
     fi
-    echo "📦 Extracting arm64 cross-compilation environment..."
-    tar -xzf aarch64-linux-musl-cross.tgz
+    echo "📦 Extracting cross-compilation environment..."
+    tar -xzf riscv64-linux-musl-cross.tgz
     cd - >/dev/null
-    export PATH="$CROSS_DIR/aarch64-linux-musl-cross/bin:$PATH"
+    export PATH="$CROSS_DIR/riscv64-linux-musl-cross/bin:$PATH"
 fi
 
 export CC
@@ -54,11 +54,11 @@ if [ ! -f third_party/xdelta/xdelta3/xdelta3.c ]; then
     exit 1
 fi
 
-echo "✅ ARM64 tools ready for battle. Continuing..."
+echo "✅ RISC-V tools ready for battle. Continuing..."
 echo ""
 
-# Flags específicos para arquitectura ARM64 limpia (AArch64 genérica)
-ARCH_FLAGS="-fno-ident -fno-asynchronous-unwind-tables $MAP_FLAGS"
+# Extensiones estándar rv64gc (Integer, Multiply, Atomic, Float, Double, Compressed)
+ARCH_FLAGS="-march=rv64gc -mabi=lp64d -fno-ident -fno-asynchronous-unwind-tables $MAP_FLAGS"
 
 CFLAGS="-std=c11 -Wall -Wextra -O2 -ffunction-sections -fdata-sections -fno-ident -fno-asynchronous-unwind-tables $MAP_FLAGS -Isrc \
         -Ithird_party/xdelta/xdelta3 \
@@ -99,30 +99,30 @@ SRC="src/tt_main.c \
 
 mkdir -p build
 
-echo "📦 Compiling xdelta3 for ARM64..."
+echo "📦 Compiling xdelta3 for RISC-V..."
 $CC -std=gnu11 -O2 -w -fPIC -fno-ident $MAP_FLAGS $CFLAGS \
-    -c third_party/xdelta/xdelta3/xdelta3.c -o build/xdelta3_arm64.o
+    -c third_party/xdelta/xdelta3/xdelta3.c -o build/xdelta3.o
 
-echo "🔗 Linking Time-Travel together for ARM64..."
+echo "🔗 Linking Time-Travel together for RISC-V..."
 $CC $CFLAGS $ARCH_FLAGS \
     $SRC \
-    build/xdelta3_arm64.o \
+    build/xdelta3.o \
     -static -no-pie -Wl,--gc-sections \
-    -o build/timetravel-arm64
+    -o build/timetravel
 
-if [ ! -f "build/timetravel-arm64" ]; then
-    echo "❌ FATAL: build/timetravel-arm64 was not created. Linking failed."
+if [ ! -f "build/timetravel" ]; then
+    echo "❌ FATAL: build/timetravel was not created. Linking failed."
     exit 1
 fi
 
-"$STRIP_BIN" --strip-all build/timetravel-arm64 2>/dev/null || true
+"$STRIP_BIN" --strip-all build/timetravel 2>/dev/null || true
 
 echo ""
 echo "============================================================"
-echo "✅ ARM64 CROSS-COMPILATION COMPLETED SUCCESSFULLY"
+echo "✅ RISC-V CROSS-COMPILATION COMPLETED SUCCESSFULLY"
 echo "============================================================"
 echo ""
-file build/timetravel-arm64
+file build/timetravel
 echo ""
-ls -lh build/timetravel-arm64
+ls -lh build/timetravel
 

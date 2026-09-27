@@ -14,6 +14,10 @@ if [ ! -f third_party/xdelta/xdelta3/xdelta3.c ]; then
 fi
 
 SRC="src/tt_main.c \
+     src/tt_util.c \
+     src/tt_cache.c \
+     src/tt_history.c \
+     src/tt_capture.c \
      src/tt_store.c \
      src/tt_delta.c \
      src/tt_filter.c \
@@ -25,13 +29,23 @@ SRC="src/tt_main.c \
      src/tt_dedup.c \
      src/tt_crypto.c \
      src/tt_kdf.c \
+     src/tt_cmds.c \
+     src/tt_repo.c \
+     src/tt_annotation.c \
+     src/tt_autotag.c \
+     src/tt_reconstruct.c \
+     src/tt_exclude.c \
      src/tt_blake2b.c \
      src/tt_verify.c"
+
 
 for f in $SRC \
          src/tt_types.h src/tt_ipc.h \
          src/tt_dedup.h src/tt_crypto.h \
-         src/tt_kdf.h src/tt_blake2b.h; do
+         src/tt_kdf.h src/tt_blake2b.h \
+src/tt_reconstruct.h \
+src/tt_annotation.h \
+src/tt_autotag.h; do
     if [ ! -f "$f" ]; then
         echo "❌ ERROR: missing $f"
         exit 1

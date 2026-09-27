@@ -53,4 +53,45 @@ int tt_aead_decrypt(const uint8_t key[TT_KEY_LEN], const uint8_t nonce[TT_NONCE_
  * Devuelve 0 si todo es correcto, -1 si algo falla. */
 int tt_crypto_selftest(void);
 
+
+/* Cifra un path (rel) con la clave del repo.
+nonce: derivado de path_index + timestamp (evita nonces repetidos).
+aad: timestamp_ns || event_type (autentica el contexto).
+Devuelve 0 en éxito. ct debe tener al menos pt_len bytes. */
+int tt_encrypt_path(const uint8_t key[TT_KEY_LEN],
+                  uint64_t path_index, uint64_t timestamp_ns,
+                  uint8_t event_type,
+                  const char *path, size_t path_len,
+                  uint8_t *ct, uint8_t tag[TT_TAG_LEN]);
+
+/* Descifra un path cifrado. Devuelve 0 si autenticación OK, -1 si falla. */
+int tt_decrypt_path(const uint8_t key[TT_KEY_LEN],
+                    uint64_t path_index, uint64_t timestamp_ns,
+                    uint8_t event_type,
+                    const uint8_t *ct, size_t ct_len,
+                    const uint8_t tag[TT_TAG_LEN],
+                    char *path_out, size_t path_out_sz);
+
+/* Deriva un nonce de 24 bytes a partir de un path_index y timestamp.
+Usa BLAKE2b para asegurar que nunca se repite. */
+void tt_path_nonce(uint64_t path_index, uint64_t timestamp_ns,
+                   uint8_t nonce[TT_NONCE_LEN]);
+
+
+/* Clave de repo: genera o lee .timetravel/repo.key (32 bytes aleatorios).
+Transparente: se crea automáticamente al primer uso. Permisos 0600. */
+int tt_repo_get_key(const char *store_dir, uint8_t key_out[TT_KEY_LEN]);
+
+/* Cifra un archivo completo con AEAD.
+Formato de salida: "TTENC01" || nonce(24) || tag(16) || ciphertext. */
+int tt_crypto_encrypt_file(const char *plaintext_path,
+                           const char *encrypted_path,
+                           const uint8_t key[TT_KEY_LEN]);
+
+/* Descifra un archivo cifrado con tt_crypto_encrypt_file.
+Devuelve 0 en éxito, -1 si falla la autenticación. */
+int tt_crypto_decrypt_file(const char *encrypted_path,
+                           const char *plaintext_path,
+                           const uint8_t key[TT_KEY_LEN]);
+
 #endif

@@ -107,6 +107,16 @@ typedef struct TtStore TtStore;
 typedef struct TtStoreReaderCtx TtStoreReader;
 
 /* Repositorio autonomo: 1 carpeta + 1 .timetravel + 1 cache + 1 cola */
+
+/* ============================================================
+   v1.5: per-repo exclude list
+   ============================================================ */
+typedef struct {
+    char **patterns;
+    size_t count;
+    size_t cap;
+} TtExcludeList;
+
 typedef struct {
     int      active;
     int      repo_id;
@@ -120,6 +130,7 @@ typedef struct {
     TtStateCache cache;
     TtDebounce  *debounce;    /* heap: ~2 MB, solo si el repo existe */
     TtStore     *store;       /* escritor .ttd propio, sin globales */
+    TtExcludeList excludes;   /* v1.5: per-repo exclude list */
 } TtLocalRepo;
 
 /* Administrador global del enjambre */

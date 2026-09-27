@@ -1,4 +1,11 @@
 #!/bin/bash
+
+
+# Detectar si estamos bajo Valgrind (binario con "valgrind" en el nombre)
+if echo "$1" | grep -qi valgrind; then
+    export VALGRIND_MODE=1
+    echo "⚠️  Valgrind mode detected: increasing timeouts"
+fi
 # ============================================================
 # Time-Travel CLI — Test Battery (43 sections)
 # Usage: ./mega_test.sh [binary_path]
@@ -306,7 +313,13 @@ get_record_count() {
 
 wait_for_stable_records() {
 	local dir="$1" prev="" stable=0 cur
-	for _ in $(seq 1 60); do
+	local max_iter=60
+	local sleep_time=0.5
+	if [ -n "${VALGRIND_MODE:-}" ]; then
+		max_iter=180  # 90 segundos bajo Valgrind
+		sleep_time=1.0
+	fi
+	for _ in $(seq 1 $max_iter); do
 		cur="$(get_record_count "$dir")"
 		if [ -n "$cur" ] && [ "$cur" = "$prev" ]; then
 			stable=$((stable+1))
@@ -315,7 +328,7 @@ wait_for_stable_records() {
 			stable=0
 		fi
 		prev="$cur"
-		sleep 0.5
+		sleep $sleep_time
 	done
 	return 0
 }
@@ -1181,8 +1194,6 @@ section "39. XChaCha20-Poly1305 encryption"
 if [ "${TT_UNDER_VALGRIND:-0}" = "1" ] && [ "${SKIP_CRYPTO_UNDER_VALGRIND:-1}" = "1" ]; then
     skip "39.x crypto disabled under Valgrind (KDF too slow; run without Valgrind)"
 else
-    section "39. XChaCha20-Poly1305 encryption"
-
     "$TT" stop >/dev/null 2>&1
     sleep 1
 
@@ -1797,6 +1808,104 @@ else
     fail "43.8 v000002 dumped"
     fail "43.9 v000002 byte-identical"
 fi
+
+# ============================================================
+# 44. --exclude: per-repo exclusion patterns
+# ============================================================
+section "44. exclude patterns"
+
+D44="$WORK/t44"
+mkdir -p "$D44/src" "$D44/.venv" "$D44/build" "$D44/logs"
+
+echo "int main(){}" > "$D44/src/main.c"
+echo "venv config"  > "$D44/.venv/pyvenv.cfg"
+echo "object file"  > "$D44/build/output.o"
+echo "log entry"    > "$D44/logs/app.log"
+
+"$TT" start "$D44" --exclude ".venv" --exclude "build" >/dev/null 2>&1
+vg_sleep 2
+
+if [ -f "$D44/.timetravel/exclude.enc" ]; then
+    # Verificar que exclude.list NO existe (fue cifrado)
+    if [ -f "$D44/.timetravel/exclude.list" ]; then
+        fail "44.1 exclude.list still exists (should be encrypted)"
+    else
+        pass "44.1 exclude.enc created (exclude.list encrypted)"
+    fi
+else
+    fail "44.1 exclude.enc not created"
+fi
+
+EXLIST="$("$TT" exclude list --repo "$D44" 2>/dev/null)"
+if echo "$EXLIST" | grep -q ".venv" && echo "$EXLIST" | grep -q "build"; then
+    pass "44.2 exclude list shows patterns"
+else
+    fail "44.2 exclude list shows patterns"
+fi
+
+echo "change" >> "$D44/.venv/pyvenv.cfg"
+vg_sleep 2
+VLOG="$("$TT" log "$D44/.venv/pyvenv.cfg" --repo "$D44" 2>/dev/null)"
+if [ -z "$VLOG" ] || ! echo "$VLOG" | grep -q "CREATE"; then
+    pass "44.3 excluded dir not captured"
+else
+    fail "44.3 excluded dir not captured"
+fi
+
+echo "change" >> "$D44/src/main.c"
+vg_sleep 2
+LOGOUT="$("$TT" log "$D44/src/main.c" --repo "$D44" 2>/dev/null)"
+if echo "$LOGOUT" | grep -q "CREATE"; then
+    pass "44.4 non-excluded file captured"
+else
+    fail "44.4 non-excluded file captured"
+fi
+
+"$TT" exclude add "*.log" --repo "$D44" >/dev/null 2>&1
+vg_sleep 1
+EXLIST2="$("$TT" exclude list --repo "$D44" 2>/dev/null)"
+if echo "$EXLIST2" | grep -qF '*.log'; then
+    pass "44.5 exclude add works"
+else
+    fail "44.5 exclude add works"
+fi
+
+"$TT" exclude remove "*.log" --repo "$D44" >/dev/null 2>&1
+vg_sleep 1
+EXLIST3="$("$TT" exclude list --repo "$D44" 2>/dev/null)"
+if ! echo "$EXLIST3" | grep -qF '*.log'; then
+    pass "44.6 exclude remove works"
+else
+    fail "44.6 exclude remove works"
+fi
+
+"$TT" stop --repo "$D44" >/dev/null 2>&1
+vg_sleep 1
+"$TT" start "$D44" >/dev/null 2>&1
+vg_sleep 2
+EXLIST4="$("$TT" exclude list --repo "$D44" 2>/dev/null)"
+if echo "$EXLIST4" | grep -q ".venv" && echo "$EXLIST4" | grep -q "build"; then
+    pass "44.7 exclude persists across restart"
+else
+    fail "44.7 exclude persists across restart"
+fi
+
+"$TT" exclude add "*.log" --repo "$D44" >/dev/null 2>&1
+"$TT" stop --repo "$D44" >/dev/null 2>&1
+vg_sleep 1
+"$TT" start "$D44" >/dev/null 2>&1
+vg_sleep 2
+echo "new log" > "$D44/logs/new_file.log"
+vg_sleep 2
+LLOG="$("$TT" log "$D44/logs/new_file.log" --repo "$D44" 2>/dev/null)"
+if [ -z "$LLOG" ] || ! echo "$LLOG" | grep -q "CREATE"; then
+    pass "44.8 glob pattern excludes correctly"
+else
+    fail "44.8 glob pattern excludes correctly"
+fi
+
+"$TT" stop >/dev/null 2>&1
+vg_sleep 1
 
 # ============================================================
 # Summary
