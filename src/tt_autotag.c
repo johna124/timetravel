@@ -319,44 +319,46 @@ void tt_delta_full_summary(const uint8_t *old, size_t old_sz,
         return;
     out[0] = '\0';
 
-    /* No generar autotags para archivos binarios */
+    /* No generar nada para archivos binarios */
     if (is_binary_data(new, new_sz))
         return;
     if (old && old_sz > 0 && is_binary_data(old, old_sz))
         return;
 
+    /* 1. Calcular las líneas modificadas */
     int old_lines = count_lines(old, old_sz);
     int new_lines = count_lines(new, new_sz);
     int diff = new_lines - old_lines;
     int added = diff > 0 ? diff : 0;
     int removed = diff < 0 ? -diff : 0;
 
-    /* Encontrar rango de líneas cambiadas */
+    /* 2. Encontrar el rango de líneas */
     int sl = 1, el = 1;
     find_changed_range(old, old_sz, new, new_sz, &sl, &el);
-    int changed = el - sl + 1;
 
-    /* Si el número total de líneas no cambió pero hay cambios en el contenido,
-       las líneas fueron reemplazadas (no añadidas/borradas) */
-    if (added == 0 && removed == 0 && changed > 0) {
-        /* Mostrar el rango de líneas afectadas como "reemplazadas" */
-        /* No asignar changed a added/removed, mantenerlos en 0 */
+    /* 3. Calcular el delta numérico de tamaño y el total */
+    long long byte_diff = (long long)new_sz - (long long)old_sz;
+    size_t file_size = new_sz;
+
+        /* 4. Formatear de forma compacta (sin espacios de relleno de columnas) */
+    char head[256];
+    if (sl == el) {
+        snprintf(head, sizeof head, "+%d/-%d lines %d delta=%lld file=%zu", 
+                 added, removed, sl, byte_diff, file_size);
+    } else {
+        snprintf(head, sizeof head, "+%d/-%d lines %d-%d delta=%lld file=%zu", 
+                 added, removed, sl, el, byte_diff, file_size);
     }
 
-    /* Formato: +A/-R lines START-END */
-    char head[128];
-    if (sl == el)
-        snprintf(head, sizeof head, "+%d/-%d lines %d", added, removed, sl);
-    else
-        snprintf(head, sizeof head, "+%d/-%d lines %d-%d", added, removed, sl, el);
 
-    /* Tags (solo de líneas cambiadas) */
-    char tags[256] = "";
+    /* 5. Extraer los hashtags (con buffer de 512 para que no se corten) */
+    char tags[512] = "";
     tt_generate_autotag(old, old_sz, new, new_sz, tags, sizeof tags);
 
-    /* Componer: "+3/-1 lines 500-503 #tag1 #tag2" */
+    /* 6. Juntarlo todo en la salida final */
     if (tags[0])
         snprintf(out, outsz, "%s %s", head, tags);
     else
         snprintf(out, outsz, "%s", head);
 }
+
