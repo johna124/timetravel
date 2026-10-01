@@ -129,11 +129,11 @@ void tt_status_write(TtDaemon *d)
         if (r->debounce)
             tp += r->debounce->count;
     }
-
-    for (int i = 0; i < d->repo_count; ++i) {
-        char fin[TT_PATH_MAX + 64], tmp[TT_PATH_MAX + 64];
+        for (int i = 0; i < d->repo_count; ++i) {
+        char fin[TT_PATH_MAX + 64], tmp[TT_PATH_MAX + 64 + 8];
         tt_status_file_path(fin, sizeof fin, d->repos[i].store_dir);
         snprintf(tmp, sizeof tmp, "%s.tmp", fin);
+
 
         FILE *f = fopen(tmp, "w");
         if (!f)
@@ -182,7 +182,7 @@ int tt_status_read_file(const char *path, TtStatusFile *sf)
         else if (!strncmp(line, "updated_ns=", 11))
             sf->updated_ns = strtoull(line + 11, NULL, 10);
         else if (!strncmp(line, "watch_dir=", 10))
-            snprintf(sf->watch_dir, sizeof sf->watch_dir, "%s", line + 10);
+            snprintf(sf->watch_dir, sizeof sf->watch_dir, "%.*s", (int)(sizeof(sf->watch_dir) - 1), line + 10);
         else if (!strncmp(line, "repo.", 5) && sf->repo_count < TT_MAX_REPOS) {
             char *eq = strchr(line, '=');
             if (eq) {

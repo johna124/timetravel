@@ -727,7 +727,8 @@ static int prune_files_recursive(const char *base,
              */
             rmdir(child_full);
         } else if (S_ISREG(st.st_mode) || S_ISLNK(st.st_mode)) {
-            char full_rel[TT_PATH_MAX];
+        char full_rel[TT_PATH_MAX * 2];
+
 
             if (prefix && prefix[0])
                 snprintf(full_rel, sizeof(full_rel), "%s/%s", prefix, child_rel);
@@ -1004,7 +1005,8 @@ int tt_restore_dir_per_file(const char *store_dir,
         char repo_root[TT_PATH_MAX];
 
         if (repo_root_from_store_dir(store_dir, repo_root, sizeof(repo_root)) == 0) {
-            char expected_target[TT_PATH_MAX];
+        char expected_target[TT_PATH_MAX * 2];
+
 
             if (prefix_norm[0])
                 snprintf(expected_target, sizeof(expected_target), "%s/%s", repo_root, prefix_norm);

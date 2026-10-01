@@ -38,4 +38,7 @@ int tt_cmd_tag(const char *name, const char *repo_dir);
 int tt_cmd_diff(const char *path, const char *repo_dir, const char *time_expr);
 int tt_cmd_dump(const char *path, const char *repo_dir, const char *outdir, int with_diff);
 
+/* ---------------- exclusion commands ---------------- */
+int tt_cmd_exclude(const char *action, const char *pattern, const char *repo);
+
 #endif /* TT_CMDS_H */

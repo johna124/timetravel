@@ -66,6 +66,22 @@ extern int tt_ipc_global_status_path(char *, size_t);
 extern void tt_boot_lock_acquire(void);
 extern void tt_boot_lock_release(void);
 
+/* ---------------- externs: store reader ---------------- */
+extern int tt_store_reader_init(void);
+extern int tt_store_reader_next(TtDeltaHeader *hdr, char *path_out, size_t max_path, uint8_t **payload_out, size_t *payload_sz);
+extern void tt_store_reader_free(void);
+
+/* ---------------- externs: dedup / compat key ---------------- */
+extern int tt_dedup_reconstruct(const char *store_dir, const uint8_t *payload, size_t payload_size,
+                                uint8_t **out, size_t *out_size, const uint8_t *key);
+extern const uint8_t *tt_store_compat_get_key(void);
+
+/* ---------------- externs: delta decoder ---------------- */
+extern int tt_delta_decode(const uint8_t *old_data, size_t old_size,
+                           const uint8_t *delta_data, size_t delta_size,
+                           size_t expected_new_size,
+                           uint8_t **new_out, size_t *new_size_out);
+
 /* ==================== Crypto helpers ==================== */
 
 int tt_read_passphrase(const char *prompt, char *buf, size_t bufsz, int confirm)
@@ -1062,7 +1078,9 @@ static int dump_one_file(const char *store_dir, const char *rel, const char *out
     size_t state_size = 0;
     int have = 0;
     uint64_t seq = 0;
-    char prev_file[TT_PATH_MAX] = "";
+    char prev_file[(TT_PATH_MAX * 2) + 64] = "";
+
+
 
     for (;;) {
         TtDeltaHeader hdr;
@@ -1148,7 +1166,7 @@ static int dump_one_file(const char *store_dir, const char *rel, const char *out
                     }
                 }
 
-                /* Fallback: some MODIFY records may store full content. */
+/* Fallback: some MODIFY records may store full content. */
                 if (!changed && plsz == hdr.file_size) {
                     free(state);
                     state = malloc(plsz);
@@ -1167,7 +1185,7 @@ static int dump_one_file(const char *store_dir, const char *rel, const char *out
         if (changed) {
             seq++;
 
-            char cur[TT_PATH_MAX * 2];
+            char cur[(TT_PATH_MAX * 2) + 64];
             snprintf(cur, sizeof cur, "%s/v%06llu_%llu",
                      fdir,
                      (unsigned long long)seq,
@@ -1176,7 +1194,7 @@ static int dump_one_file(const char *store_dir, const char *rel, const char *out
             write_file_all(cur, state, state_size);
 
             if (with_diff && prev_file[0]) {
-                char diff_file[TT_PATH_MAX * 2];
+                char diff_file[(TT_PATH_MAX * 2) + 64];
                 snprintf(diff_file, sizeof diff_file,
                          "%s/%06llu_to_%06llu.diff",
                          ddir,
@@ -1202,9 +1220,8 @@ static int dump_one_file(const char *store_dir, const char *rel, const char *out
                         cur);
             }
         }
-    }
-
-    tt_store_reader_free();
+    } 
+  
     free(state);
 
     return seq > 0 ? 0 : 1;

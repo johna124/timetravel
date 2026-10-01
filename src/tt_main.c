@@ -357,7 +357,7 @@ static void usage(void) {
     "\n"
     "  # Multi-repo swarm\n"
     "  timetravel start ~/src\n"
-    "  timetravel start ~/src\ bin/ docs/ \n"
+    "  timetravel start ~/src/ bin/ docs/ \n"
     "  timetravel add ~/docs\n"
     "  timetravel add /mnt/datos/notas\n"
     "  timetravel status                          # swarm view from any cwd\n"

@@ -95,7 +95,7 @@ return rc;
 {
     char _tg[512];
     tt_generate_autotag(NULL, 0, data, size, _tg, sizeof _tg);
-    char _sm[256];
+    char _sm[1024];
     if (_tg[0])
         snprintf(_sm, sizeof _sm, "CREATE (%zu B) %s", size, _tg);
     else
