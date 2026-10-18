@@ -1,0 +1,216 @@
+==============================================================================
+THE CASE OF THE INVISIBLE INK AND THE WHISPERING TAGS — A FORENSIC
+INVESTIGATION INTO TIME-TRAVEL v1.5
+==============================================================================
+
+By John H. Watson, M.D.
+Late of the Army Medical Department
+
+The autumn rain had not relented for three days. The old Core 2 Duo hummed
+its familiar hymn — a low, persistent drone that I had long since ceased
+to notice. Sherlock Holmes sat cross-legged in his chair, a terminal full
+of hexadecimal reflected in his eyes like constellations in a dark pond.
+
+"Watson," he said without turning, "the case of v1.5 is the most subtle
+we have yet encountered. It is not a case of broken seals or orphan
+blocks. It is a case of visibility."
+
+"Visibility?" I asked, setting down my tea.
+
+"Two questions," he replied, raising two fingers. "First: when a man
+edits a single line in a file of five hundred, how does the historian
+know what changed without reading the entire manuscript? Second: when a
+thief steals your ledger, what does he learn from the table of contents
+alone?"
+
+He let the questions hang in the damp air.
+
+------------------------------------------------------------------------------
+I. THE WHISPERING TAGS
+------------------------------------------------------------------------------
+
+"Consider the log," Holmes began, typing a single command. The screen
+filled with the familiar columns of timestamps, events, and paths.
+
+  MODIFY    +1/-1 lines 3 #max_retries                          worker.c
+  CREATE    CREATE (176 B) #futex_lock #PTHREAD_MUTEX_INITIALIZER  worker.c
+
+"Do you see it, Watson? The log no longer merely reports that a file
+changed. It tells you HOW MUCH changed, WHERE it changed, and WHAT
+identifiers were involved."
+
+"But how?" I asked. "The engine records deltas, not semantics."
+
+"Precisely. And that is the art. The new module — tt_autotag.c — reads
+the delta and extracts only the lines that differ. Not the whole file,
+Watson, only the wound. From those lines it pulls identifiers: variable
+names, function names, type names. It ranks them by frequency, discards
+the common keywords of the language — 'if', 'return', 'void', the usual
+suspects — and presents the top four as tags."
+
+"And the format?"
+
+"Three parts. First, the quantity: +1/-1 lines means one line was added
+and one removed — a replacement. Second, the range: the number or range
+of lines affected. Third, the tags: hash-prefixed identifiers drawn from
+the changed region alone. A surgeon's report, not a novelist's."
+
+He scrolled to another entry.
+
+"Observe: when the edit adds three lines and removes one, the log reads
++3/-1 lines 500-503. When the content changes but the line count stays
+the same, it reads EDIT [L3]. The format adapts to the nature of the
+wound."
+
+"And these tags are stored where?"
+
+"In annotations.enc," Holmes replied. "Which brings us to the second
+question."
+
+------------------------------------------------------------------------------
+II. THE INVISIBLE INK
+------------------------------------------------------------------------------
+
+Holmes closed the log and opened the .timetravel directory.
+
+"In v1.4," he said, "we encrypted the content of records and the blocks
+of the dedup pool. The payloads were sealed with XChaCha20-Poly1305. But
+the skeleton remained bare. Paths, timestamps, file sizes — all visible
+to anyone who opened the store."
+
+"A necessary compromise," I ventured. "The historian needs names and
+dates."
+
+"For the records themselves, yes. The path is required for indexing; the
+timestamp for ordering. But the auxiliary files — the annotations, the
+baseline manifest, the exclusion patterns — those are a different matter.
+They are not read by the reconstruction engine on every operation. They
+can be sealed entirely."
+
+He typed a command and showed me the directory listing:
+
+  annotations.enc    208 bytes   -rw-------
+  baseline.enc       1.2 KiB     -rw-------
+  exclude.enc        126 bytes   -rw-------
+  repo.key            32 bytes   -rw-------
+
+"No plaintext," he said. "Every auxiliary file is encrypted with the
+same XChaCha20-Poly1305 AEAD that protects the payloads. The format is
+simple: a seven-byte magic — TTENC01 — followed by a twenty-four-byte
+random nonce, a sixteen-byte authentication tag, and the ciphertext."
+
+"And the key?"
+
+"Generated automatically on first use. Thirty-two random bytes from
+/dev/urandom, stored in repo.key with permissions 0600. The user never
+sees it, never types it, never thinks about it. Transparency, Watson.
+The strongest lock is the one the owner does not need to fumble with."
+
+"But if the key is on disk," I objected, "a thief who steals the machine
+can read it."
+
+Holmes allowed himself a thin smile. "A thief who has root access to
+your machine can also read your source files directly. The encryption
+protects against casual inspection — a colleague browsing your backup
+drive, a cloud provider scanning your storage. It raises the cost of
+curiosity from zero to non-trivial. Perfect security is a myth;
+pragmatic security is a discipline."
+
+------------------------------------------------------------------------------
+III. THE CARTOGRAPHER'S REFORM
+------------------------------------------------------------------------------
+
+Holmes leaned back and steepled his fingers.
+
+"There is a third change in v1.5, less visible but no less important.
+The monolith has been dissected."
+
+"Dissected?"
+
+"The great tt_main.c — four thousand lines of orchestration, capture,
+commands, and reconstruction — has been divided into seven focused
+modules. tt_capture.c handles the capture pipeline. tt_repo.c manages
+the lifecycle of repositories. tt_cmds.c dispatches CLI commands.
+tt_reconstruct.c provides a single, unified reconstruction engine.
+tt_exclude.c manages exclusion patterns. tt_autotag.c generates semantic
+tags. tt_annotation.c persists them."
+
+"Why?" I asked. "The monolith worked."
+
+"The monolith worked the way a Swiss Army knife works: adequately at
+everything, excellently at nothing. The reconstruction logic was
+duplicated four times — once for undo, once for diff, once for dump,
+once for verify. Four copies of the same algorithm, each with its own
+subtle bugs. When a corrupted dedup block reached the verify path but
+not the undo path, the inconsistency was invisible."
+
+"And now?"
+
+"Now there is one function: tt_reconstruct_file(). It handles CREATE,
+MODIFY, DELETE, and CREATE_DEDUP. It propagates errors correctly — a
+corrupted block returns -1 instead of silently producing garbage. Every
+command that needs to reconstruct a file calls the same engine. One
+source of truth, Watson. One place to look when the body is found."
+
+------------------------------------------------------------------------------
+IV. THE EXPANDED BATTERY
+------------------------------------------------------------------------------
+
+Holmes opened the test log. The final summary glowed green:
+
+  Passed:    124/124
+  Failed:    0
+  Skipped:   0
+
+"One hundred and twenty-four assertions across forty-four sections," he
+said. "Up from one hundred and sixteen across forty-three. The new
+section validates exclusion pattern persistence and encryption. The
+corrupted-dedup-block test that previously passed in silence now
+correctly detects the failure. And the status command reports the
+Records line that the test battery expected."
+
+"And the sanitizer builds?"
+
+"AddressSanitizer, UndefinedBehaviorSanitizer, ThreadSanitizer, and
+Valgrind — all updated with the new source files. All clean. The metal
+confesses nothing."
+
+------------------------------------------------------------------------------
+V. THE RETROCOMPATIBLE GHOST
+------------------------------------------------------------------------------
+
+"One final detail," Holmes added, almost as an afterthought. "The
+encryption is backward-compatible. If a repository still carries the old
+plaintext files — annotations.tsv, baseline.list, exclude.list — the
+engine reads them without complaint. New files are always written
+encrypted. The ghost of v1.4 is welcome to linger; it will simply be
+ignored once the new files appear."
+
+"A graceful transition," I said.
+
+"The only kind worth building," Holmes replied.
+
+------------------------------------------------------------------------------
+VI. THE FINAL ENTRY
+------------------------------------------------------------------------------
+
+The rain struck the window with renewed vigor. The mechanical disk
+clicked twice and fell quiet, as if satisfied with the day's work.
+
+"Then the case is closed," I said.
+
+"It is," Holmes answered. "v1.4 learned to hide the content. v1.5
+learned to hide the context. The ledger no longer whispers its secrets
+to anyone who opens the cover. And the historian — the man who reads
+the log at three in the morning, trying to understand what changed and
+why — now has tags that point him directly to the wound."
+
+He closed the terminal and reached for his pipe.
+
+"Let the ledger record that v1.5 did not merely encrypt. It annotated.
+And in annotating, it made the invisible legible and the legible
+invisible — depending on which side of the key you stand."
+
+==============================================================================
+[END OF CHRONICLE — v1.5 AUTOTAGS + METADATA ENCRYPTION]
+==============================================================================
