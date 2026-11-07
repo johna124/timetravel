@@ -1,0 +1,412 @@
+
+=== Time-Travel mega test ===
+Architecture : x86_64
+Host         : x86_64
+Binary       : /home/mint/projects_c/time_travel_v1_6/build_tsan/timetravel
+Version      : v1.6
+Sanitizers   : TSan
+Log file     : time_travel_megatest_x86_64_v1.6_TSan_20261017_224316.txt
+Started      : Sat Oct 17 10:43:16 PM CEST 2026
+
+[INFO] ThreadSanitizer detected (TT=/home/mint/projects_c/time_travel_v1_6/build_tsan/timetravel, score tsan=24 asan=0).
+[INFO] Valgrind memory audit will be skipped.
+
+============================================================
+[1/52] 1. Setup
+============================================================
+  ✅ [001] 1.1 binary responds to help
+
+============================================================
+[2/52] 2. basic watch
+============================================================
+  ✅ [002] 2.1 daemon running
+  ✅ [003] 2.2 no initial records
+
+============================================================
+[3/52] 3. undo --last
+============================================================
+  ✅ [004] 3.1 undo --last restores previous version
+
+============================================================
+[4/52] 4. undo --initial
+============================================================
+  ✅ [005] 4.1 undo --initial restores original
+
+============================================================
+[5/52] 5. undo --to (time point & exact dates)
+============================================================
+  ✅ [006] 5.1 undo --to time point restores previous version
+  ✅ [007] 5.2 undo --to with invalid expression fails
+  ✅ [008] 5.3 undo --to exact timestamp restores correct version
+
+============================================================
+[6/52] 6. undo of deleted file
+============================================================
+  ✅ [009] 6.1 undo restores deleted file
+
+============================================================
+[7/52] 7. undo --to after deletion
+============================================================
+  [INFO] 7.1: undo --to timing-sensitive test in normal mode
+  ✅ [010] 7.1 undo --to restores deleted file
+
+============================================================
+[8/52] 8. log
+============================================================
+  ✅ [011] 8.1 log shows CREATE
+  ✅ [012] 8.2 log shows MODIFY
+
+============================================================
+[9/52] 9. status
+============================================================
+  ✅ [013] 9.1 status shows Records
+  ✅ [014] 9.2 status shows daemon running
+
+============================================================
+[10/52] 10. dynamic: hot new file
+============================================================
+  ✅ [015] 10.1 new file: undo --last restores first version
+
+============================================================
+[11/52] 11. dynamic: new subdirectory
+============================================================
+  ✅ [016] 11.1 file in new subdirectory restorable
+
+============================================================
+[12/52] 12. dynamism after restart
+============================================================
+  ✅ [017] 12.1 undo --last after restart
+
+============================================================
+[13/52] 13. Git clone
+============================================================
+  ✅ [018] 13.1 clone present
+  ✅ [019] 13.2 .git/ excluded
+  ✅ [020] 13.3 undo of clone file
+
+============================================================
+[14/52] 14. Binary file
+============================================================
+  ✅ [021] 14.1 binary restored byte by byte
+
+============================================================
+[15/52] 15. Empty file
+============================================================
+  ✅ [022] 15.1 undo restores after truncation to empty
+
+============================================================
+[16/52] 16. compact
+============================================================
+  ✅ [023] 16.1 compact executes
+  ✅ [024] 16.2 undo after compact works (version 20 with content)
+
+============================================================
+[17/52] 17. full directory undo
+============================================================
+  ✅ [025] 17.1 undo dir --last restores a.txt
+  ✅ [026] 17.2 undo dir --last restores sub/c.txt
+
+============================================================
+[18/52] 18. Burst: 50 edits
+============================================================
+  ✅ [027] 18.1 undo --initial after burst
+
+============================================================
+[19/52] 19. Burst: 100 files + concurrency
+============================================================
+  ✅ [028] 19.1 undo --last after concurrency coherent
+
+============================================================
+[20/52] 20. Stress: 500 files
+============================================================
+  ✅ [029] 20.1 500 files captured (500)
+  ✅ [030] 20.2 undo --last on file 250/500
+
+============================================================
+[21/52] 21. Weird names
+============================================================
+  ✅ [031] 21.1 name with spaces
+  ✅ [032] 21.2 name with ñ
+
+============================================================
+[22/52] 22. start / stop / restart
+============================================================
+  ✅ [033] 22.1 start launches daemon
+  ✅ [034] 22.2 daemon running after start
+  ✅ [035] 22.3 duplicate start does not launch another daemon
+  ✅ [036] 22.4 stop stops the daemon
+  ✅ [037] 22.5 daemon stopped after stop
+  ✅ [038] 22.6 restart starts again
+  ✅ [039] 22.7 daemon running after restart
+
+============================================================
+[23/52] 23. enriched status
+============================================================
+  ✅ [040] 23.1 status shows daemon running
+  ✅ [041] 23.2 status shows Records
+  ✅ [042] 23.3 status shows Uptime
+  ✅ [043] 23.4 status without daemon indicates not running
+
+============================================================
+[24/52] 24. tags and undo --tag
+============================================================
+  ✅ [044] 24.1 tag is created
+  ✅ [045] 24.2 tags lists the checkpoint
+  ✅ [046] 24.3 undo --tag restores to checkpoint
+
+============================================================
+[25/52] 25. diff
+============================================================
+  ✅ [047] 25.1 diff shows the change
+
+============================================================
+[26/52] 26. directory undo: confirmation and --force
+============================================================
+  ✅ [048] 26.1 undo dir without confirmation touches nothing
+  ✅ [049] 26.2 undo dir --force restores
+
+============================================================
+[27/52] 27. log --since
+============================================================
+  ✅ [050] 27.1 log --since shows recent events
+  ✅ [051] 27.2 log --since wide range includes everything
+
+============================================================
+[28/52] 28. multi-repo: start + hot add
+============================================================
+  ✅ [052] 28.1 status shows repo A
+  ✅ [053] 28.2 status shows repo B
+  ✅ [054] 28.3 status shows 2 repos
+  ✅ [055] 28.4 repo A log has a.txt
+  ✅ [056] 28.5 repo A log isolated
+  ✅ [057] 28.6 repo B log isolated
+
+============================================================
+[29/52] 29. multi-repo: overlap protection
+============================================================
+  ✅ [058] 29.1 add subdir rejected (overlap)
+  ✅ [059] 29.2 add same dir handled gracefully
+
+============================================================
+[30/52] 30. multi-repo: root lost & recovery
+============================================================
+  ✅ [060] 30.1 status shows ROOT LOST
+  ✅ [061] 30.2 repo A still captures events
+  ✅ [062] 30.3 repo B recovered
+
+============================================================
+[31/52] 31. multi-repo: persistence (repos.list)
+============================================================
+  ✅ [063] 31.1 repos.list re-adopted B
+  ✅ [064] 31.2 repos.list re-adopted C
+  ✅ [065] 31.3 status shows 3 repos
+
+============================================================
+[32/52] 32. multi-repo: add bootstraps daemon
+============================================================
+  ✅ [066] 32.1 add bootstraps daemon
+  ✅ [067] 32.2 daemon is running after add
+
+============================================================
+[33/52] 33. Stampede: parallel add bootstraps ONE daemon
+============================================================
+  ✅ [068] 33.1 exactly ONE daemon adopted all 5 repos
+  ✅ [069] 33.2 status shows 5 repos
+
+============================================================
+[34/52] 34. Global status from any cwd
+============================================================
+  ✅ [070] 34.1 status sin --repo muestra el enjambre
+  ✅ [071] 34.2 lista el repo activo
+
+============================================================
+[35/52] 35. selective stop (repo removal)
+============================================================
+  ✅ [072] 35.1 remove repo B via IPC
+  ✅ [073] 35.2 daemon alive after selective stop
+  ✅ [074] 35.3 swarm now has 2 repos
+  ✅ [075] 35.4 repo B gone from swarm
+  ✅ [076] 35.5 removing primary leaves repo C
+  ✅ [077] 35.6 daemon exited (no repos left)
+
+============================================================
+[36/52] 36. verify
+============================================================
+  [INFO] 36: daemon captured records after 2s (ASan slow mode)
+  ✅ [078] 36.1 verify clean store OK
+  ✅ [079] 36.2 verify detects corrupted store
+
+============================================================
+[37/52] 37. dedup: large file capture + restore
+============================================================
+  ✅ [080] 37.1 large file restored via dedup blocks
+
+============================================================
+[38/52] 38. dedup GC: orphan block cleanup
+============================================================
+  ✅ [081] 38.1 GC removes orphan block and keeps referenced blocks
+
+============================================================
+[39/52] 39. XChaCha20-Poly1305 encryption
+============================================================
+  ✅ [082] 39.1 crypto.meta created
+  ✅ [083] 39.2 encrypted store (no plaintext)
+  ✅ [084] 39.3 encrypted undo restores previous version
+  ✅ [085] 39.4 wrong passphrase rejected
+
+============================================================
+[40/52] 40. Encryption: extended hardening
+============================================================
+  ✅ [086] 40.1 undo restores file truncated to empty in encrypted repo
+  ✅ [087] 40.2 encrypted compact leaves no plaintext
+  ✅ [088] 40.3 undo after encrypted compact works (encrypted_compact_40_20)
+  ✅ [089] 40.4 encrypted dedup creates blocks (33, waited 0s)
+  ✅ [090] 40.5 dedup blocks are encrypted (no plaintext)
+  ✅ [091] 40.6 encrypted dedup undo restores v1
+  ✅ [092] 40.7 compact with wrong key does not delete blocks
+  ✅ [093] 40.8 encrypted GC removes orphan and keeps referenced blocks
+  ✅ [094] 40.9 undo detects corrupted dedup blocks
+  ✅ [095] 40.10 verify detects tampered encrypted .ttd
+  ✅ [096] 40.11 corrupted crypto.meta rejected
+
+============================================================
+[41/52] 41. Valgrind: memory audit
+============================================================
+  [INFO] TSan is active: skipping Valgrind memory audit.
+  [INFO] TSan + Valgrind together is unsupported and can OOM/timeout.
+  ⏭  [097] 41.x Valgrind memory audit (TSan active) (SKIP)
+
+============================================================
+[42/52] 42. undo dir --initial prunes files added after baseline
+============================================================
+  ✅ [098] 42.1 modified file restored to initial content
+  ✅ [099] 42.2 files added after baseline deleted
+  ✅ [100] 42.3 all 7 initial files present
+
+============================================================
+[43/52] 43. dump: dedup large file regression
+============================================================
+  ✅ [101] 43.1 dump executes
+  ✅ [102] 43.2 dump reports one file with history
+  ✅ [103] 43.3 manifest.tsv created
+  ✅ [104] 43.4 manifest contains CREATE_D
+  ✅ [105] 43.5 manifest contains MODIFY
+  ✅ [106] 43.6 v000001 dumped
+  ✅ [107] 43.7 v000001 byte-identical
+  ✅ [108] 43.8 v000002 dumped
+  ✅ [109] 43.9 v000002 byte-identical
+
+============================================================
+[44/52] 44. exclude patterns
+============================================================
+  ✅ [110] 44.1 exclude.enc created (exclude.list encrypted)
+  ✅ [111] 44.2 exclude list shows patterns
+  ✅ [112] 44.3 excluded dir not captured
+  ✅ [113] 44.4 non-excluded file captured
+  ✅ [114] 44.5 exclude add works
+  ✅ [115] 44.6 exclude remove works
+  ✅ [116] 44.7 exclude persists across restart
+  ✅ [117] 44.8 glob pattern excludes correctly
+
+============================================================
+[45/52] 45. file repos AND directories (v1.6)
+============================================================
+  ✅ [118] 45.A1 directory repo daemon running
+  ✅ [119] 45.A2 directory repo store created
+  ✅ [120] 45.A3 directory repo log shows CREATE
+  ✅ [121] 45.A4 directory repo log shows MODIFY
+  ✅ [122] 45.A5 directory repo undo --last works
+  ✅ [123] 45.B1 start accepts a single file
+  ✅ [124] 45.B2 file repo daemon running (store in parent dir)
+  ✅ [125] 45.B3 file repo store created in parent dir
+  ✅ [126] 45.B4 file repo no initial records
+  ✅ [127] 45.B5 file repo log shows CREATE
+  ✅ [128] 45.B6 file repo log shows MODIFY
+  ✅ [129] 45.B7 sibling file NOT captured (isolation OK)
+  ✅ [130] 45.B8 file repo undo --last works
+  ✅ [131] 45.B9 status --repo <file> resolves the parent store (3 records)
+  ✅ [132] 45.C1 hot-add second file in same parent
+  ✅ [133] 45.C2 status shows 2 file repos
+  ✅ [134] 45.C3 a.txt has history
+  ✅ [135] 45.C4 a.txt log isolated from b.txt
+  ✅ [136] 45.C5 b.txt log isolated from a.txt
+  ✅ [137] 45.C6 selective stop of a.txt repo
+  ✅ [138] 45.C7 swarm now has 1 repo
+  ✅ [139] 45.C8 removed repo no longer captures (a.txt frozen at 2 records)
+  ✅ [140] 45.C9 surviving repo still restores
+
+============================================================
+[46/52] 46. two file repos sharing a parent + selective stop
+============================================================
+  ✅ [141] 46.1 hot-add second file in same parent
+  ✅ [142] 46.2 status shows 2 file repos
+  ✅ [143] 46.3 a.txt has history
+  ✅ [144] 46.4 a.txt log isolated from b.txt
+  ✅ [145] 46.5 b.txt log isolated from a.txt
+  ✅ [146] 46.6 selective stop of a.txt repo
+  ✅ [147] 46.7 swarm now has 1 repo
+  ✅ [148] 46.8 removed repo no longer captures (a.txt frozen at 2 records)
+  ✅ [149] 46.9 surviving repo still restores
+
+============================================================
+[47/52] 47. file repo overlap protection
+============================================================
+  ✅ [150] 47.1 file inside watched dir rejected (overlap)
+  ✅ [151] 47.2 parent dir of a file repo handled gracefully
+
+============================================================
+[48/52] 48. file repo persistence (repos.list)
+============================================================
+  ✅ [152] 48.1 hot-add second file repo
+  ✅ [153] 48.2 repos.list re-adopted second file repo after restart
+  ✅ [154] 48.3 re-adopted file repo restores previous version
+
+============================================================
+[49/52] 49. extlog (extended log)
+============================================================
+  ✅ [155] 49.1 extlog executes
+  ✅ [156] 49.2 extlog header
+  ✅ [157] 49.3 extlog shows scope
+  ✅ [158] 49.4 extlog shows revision
+  ✅ [159] 49.5 extlog shows size
+  ✅ [160] 49.6 extlog shows delta ratio
+  ✅ [161] 49.7 extlog shows elapsed time
+  ✅ [162] 49.8 extlog shows semantic summary
+  ✅ [163] 49.9 extlog dir scope with --since
+  ✅ [164] 49.10 extlog rejects invalid --since
+  ✅ [165] 49.11 extlog works on single-file repo
+  ✅ [166] 49.12 classic log still works (extlog is additive)
+
+============================================================
+[50/52] 50. autotag cleanliness (v1.6)
+============================================================
+  ✅ [167] 50.1 uppercase token folded to lowercase tag
+  ✅ [168] 50.2 stop word 'buffer' filtered out
+  ✅ [169] 50.3 garbage tokens filtered out
+  ✅ [170] 50.4 binary file produces no hashtag autotags
+
+============================================================
+[51/52] 51. fix verification: small file MODIFY
+============================================================
+  ✅ [171] 51.1 small file shows MODIFY (fix verified)
+  ✅ [172] 51.2 small file shows CREATE (first version)
+
+============================================================
+[52/52] 52. multiple files at start
+============================================================
+  ✅ [173] 52.1 start accepts multiple files
+  ✅ [174] 52.2 status shows 3 file repos
+  ✅ [175] 52.3 glob expansion works
+  ✅ [176] 52.4 too many files (>10) rejected
+
+============================================================
+  SUMMARY
+============================================================
+  Passed:    175/176
+  Failed:    0
+  Skipped:   1
+  Duration:  14m 46s
+  Log:       time_travel_megatest_x86_64_v1.6_TSan_20261017_224316.txt
+============================================================
+
+🎉 ALL TESTS PASSED in 14m 46s

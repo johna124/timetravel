@@ -1,0 +1,188 @@
+==============================================================================
+THE CASE OF THE ENCRYPTED LEDGER AND THE MISSING MAGIC — A FORENSIC
+INVESTIGATION INTO TIME-TRAVEL v1.4
+==============================================================================
+By John H. Watson, M.D.
+Late of the Army Medical Department
+
+It was one of those grey, obstinate evenings in which the old Core 2 Duo
+seemed to breathe more heavily than usual. The mechanical disk clicked with
+a slow, judicial rhythm, like a magistrate tapping a pen against a desk.
+Sherlock Holmes sat motionless before the terminal, his face illuminated by
+columns of hexadecimal output.
+
+"Watson," he said at last, "the case of v1.4 is not a case of memory alone.
+It is a case of trust. The engine learned two new arts: to deduplicate large
+files, and to encrypt what it remembers. But every new art creates a new
+crime."
+
+"Good heavens, Holmes," I replied, hanging my coat by the door. "What crime
+could possibly survive the battery of tests?"
+
+"Three," said Holmes, raising three thin fingers. "First: corrupted ledgers
+that hide behind a broken seal. Second: orphan blocks that linger in the
+dark after their references have vanished. Third: plaintext whispers escaping
+from an encrypted vault."
+
+He turned the screen toward me.
+
+------------------------------------------------------------------------------
+I. THE DEDUP POOL
+------------------------------------------------------------------------------
+
+"Observe," Holmes began, "files of at least one mebibyte are no longer
+written whole into the delta stream. They are cut into sixty-four kibibyte
+fragments. Each fragment is hashed with BLAKE2b-256 and stored once in the
+content-addressed pool:"
+
+    .timetravel/blocks/<2hex>/<remaining hex>
+
+"The .ttd record stores only the ordered list of hashes, Watson. We call it
+TT_EV_CREATE_DEDUP. Identical fragments are shared between files, versions,
+and even histories. Restoration is an act of reassembly, not duplication."
+
+"And if a block is missing?" I asked.
+
+"Then restoration must fail gracefully," Holmes replied. "No phantom content.
+No partial lies."
+
+"And if a block is corrupted?"
+
+"Then its hash betrays it. BLAKE2b does not forgive."
+
+------------------------------------------------------------------------------
+II. THE ENCRYPTED VAULT
+------------------------------------------------------------------------------
+
+Holmes lit his pipe and continued.
+
+"A repository may now be born under secrecy:"
+
+    timetravel start /path/to/project --encrypt
+
+"The user speaks a passphrase twice. The passphrase itself is never stored.
+From it, through PBKDF2-HMAC-BLAKE2b with a random salt and one hundred
+thousand iterations, a thirty-two byte key is derived. The salt, iteration
+count, and key verifier are sealed inside:"
+
+    .timetravel/crypto.meta
+
+"The payloads of records and the blocks of the dedup pool are then protected
+by XChaCha20-Poly1305. Authenticated encryption, Watson. Not mere privacy,
+but integrity."
+
+"Then the store reveals nothing?" I asked.
+
+Holmes shook his head.
+
+"Not so fast. The content is hidden, but the skeleton remains visible.
+Record headers, paths, timestamps, and file sizes are authenticated but not
+encrypted. A historian needs names and dates; otherwise he cannot restore
+anything. Therefore, v1.4 encryption protects content, but does not promise
+full metadata secrecy."
+
+------------------------------------------------------------------------------
+III. THE MISSING MAGIC
+------------------------------------------------------------------------------
+
+Holmes leaned forward.
+
+"Now we arrive at the most instructive failure. The verify command was asked
+to certify the health of a store. But a corrupted .ttd file may carry a
+broken seal — an invalid TTDLTA01 magic. The store reader, designed to skip
+unreadable archives, passed over it in silence. And verify, seeing no
+records, declared the store clean."
+
+"A false acquittal," I murmured.
+
+"Precisely. A forensic examiner must inspect the seals before trusting the
+absence of testimony. Therefore verify was hardened. It now walks every .ttd
+file before the reader is allowed to speak. If the magic is absent, corrupt,
+or too short, the file is denounced as corrupt and verification fails."
+
+He showed me the order of interrogation:
+
+    1. Validate TTDLTA01 magic on all .ttd files.
+    2. Read and sort all records.
+    3. Group records by path.
+    4. For CREATE: payload size must match file size.
+    5. For CREATE_DEDUP: every block must exist, match its expected size,
+       and reproduce its BLAKE2b-256 reference.
+    6. For MODIFY: the xdelta3 delta must decode against the reconstructed
+       previous state.
+    7. For DELETE: the reconstruction state is cleared.
+    8. For encrypted repositories: AEAD authentication is enforced.
+
+"And the verdict?" I asked.
+
+"Zero for a clean store. Non-zero for corruption, tampering, missing blocks,
+invalid magic, or authentication failure."
+
+------------------------------------------------------------------------------
+IV. THE FAIL-CLOSED GARBAGE COLLECTOR
+------------------------------------------------------------------------------
+
+"The dedup pool," Holmes continued, "requires discipline. Compact no longer
+merely collapses delta chains. It now rewrites the store atomically and
+performs garbage collection upon the blocks."
+
+"And orphans?"
+
+"Removed. Blocks referenced by no record are swept away. Non-hexadecimal
+garbage inside the pool is also expelled. But observe the law of fail-closed
+design, Watson: if compact cannot read or authenticate the history of an
+encrypted repository, the garbage collector does not run. A wrong passphrase
+must never become a weapon of deletion."
+
+"A prudent doctrine," I said.
+
+"The only doctrine," Holmes replied.
+
+------------------------------------------------------------------------------
+V. THE AUDIT CHAMBERS
+------------------------------------------------------------------------------
+
+Holmes opened another ledger.
+
+"The engine was examined under several unforgiving lights. AddressSanitizer
+and UndefinedBehaviorSanitizer hunted memory corruption and undefined
+behavior. ThreadSanitizer hunted races between threads. Valgrind hunted
+leaks."
+
+"And the result?"
+
+"The battery was expanded. One hundred and four assertions across forty-one
+sections: ninety-six functional assertions and eight dedicated Valgrind
+memory-audit assertions. Under ThreadSanitizer, the Valgrind chamber is
+sealed, for TSan and Valgrind cannot occupy the same bench. In that mode,
+ninety-six assertions are judged and the Valgrind audit is skipped."
+
+"And Valgrind itself?"
+
+Holmes allowed himself the faintest smile.
+
+"Zero bytes definitely lost. Zero bytes indirectly lost. Zero errors. The
+metal confesses nothing."
+
+------------------------------------------------------------------------------
+VI. THE FINAL ENTRY
+------------------------------------------------------------------------------
+
+The rain struck the window. The disk clicked once more and fell quiet.
+
+"Then the case is closed," I said.
+
+"It is," Holmes answered. "v1.4 learned to store less by understanding
+repetition, and to protect more by demanding authentication. But remember,
+Watson: encryption without integrity is merely decoration, deduplication
+without verification is merely faith, and a test battery without failure
+paths is merely theatre."
+
+He closed the terminal.
+
+"Let the ledger record that v1.4 did not merely grow features. It grew
+suspicion."
+
+==============================================================================
+[END OF CHRONICLE — v1.4 DEDUP + CRYPTO CORE HARDENED]
+==============================================================================

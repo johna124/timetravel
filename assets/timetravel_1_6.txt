@@ -1,0 +1,107 @@
+==============================================================================
+THE CASE OF THE SILENT WATCHER AND THE EXTENDED CHRONICLE — A FORENSIC
+INVESTIGATION INTO TIME-TRAVEL v1.6
+==============================================================================
+By John H. Watson, M.D.
+Late of the Army Medical Department
+
+The fog had lifted from London, revealing a city that had grown more complex
+in its machinery but no less demanding in its precision. Sherlock Holmes sat
+before his terminal, the glow of the cursor reflecting in his eyes like a
+lighthouse in a storm. He held a single file in his hand — not a directory,
+not a project, but a solitary configuration script.
+
+"Watson," he said, breaking the silence, "we have long assumed that the
+historian must watch the entire library to record the change of a single
+book. We were wrong. v1.6 teaches us that one can watch the whisper without
+hearing the shout."
+
+He tapped three keys. The screen filled with a new kind of log — detailed,
+semantic, and terrifyingly precise.
+
+------------------------------------------------------------------------------
+I. THE SILENT WATCHER (FILE REPOS)
+------------------------------------------------------------------------------
+
+"Consider the old way," Holmes began, pacing the room. "To track a single
+file, `nginx.conf`, we had to watch the entire `/etc` directory. We captured
+thousands of irrelevant changes, bloated the store, and diluted the signal
+with noise. It was inefficient. It was... messy."
+
+"And now?" I asked.
+
+"Now, the daemon watches only the file. Not its parent. Not its siblings.
+Just the file. It creates a store in the parent directory, yes, but the
+logic is isolated. If `nginx.conf` changes, it is recorded. If `hosts`
+changes next to it? Silence. The daemon does not see it. It is as if the
+file exists in a vacuum."
+
+He showed me the test results. Section 45 of the battery.
+`assert_ok("45.B7 sibling file NOT captured")`.
+
+"It is surgical, Watson. For the developer who needs to track a single
+script, or the sysadmin who fears the drift of a config file, this is
+liberation. No more `.git/init` for a single text file. Just pure,
+unadulterated versioning."
+
+------------------------------------------------------------------------------
+II. THE EXTENDED CHRONICLE (EXTLOG)
+------------------------------------------------------------------------------
+
+Holmes turned to the second marvel. He typed:
+`./build/timetravel extlog src/main.c --repo src`
+
+The output was not the simple list of timestamps we were used to. It was a
+narrative.
+
+[000002] MODIFY size=1.2K ratio=0.85 elapsed=1h #quantum_flux_capacitor
+
+"Do you see the depth?" he asked. "The classic `log` tells you *when*.
+The `extlog` tells you *what* and *how much*. It shows the scope of the
+change. The size of the file. The ratio of the delta. The time elapsed
+since the previous edit. And finally, the semantic summary — the tags
+extracted from the wound itself."
+
+"It is like reading the surgeon's notes instead of just the admission date,"
+I observed.
+
+"Precisely. And it is additive. The old `log` remains for quick glances.
+But when you need to understand the evolution of a module, `extlog` is the
+only tool that matters. It does not replace history; it illuminates it."
+
+
+------------------------------------------------------------------------------
+III. THE CLEANLINESS OF TAGS
+------------------------------------------------------------------------------
+
+"There is one final detail," Holmes added. "The autotags. In v1.5, they
+were raw. In v1.6, they are refined. Garbage tokens are filtered. Binary
+files produce no hashtags. Uppercase is folded to lowercase. The tags are
+no longer just identifiers; they are insights."
+
+He showed me a test case:
+`assert_contains("50.1 uppercase token folded", "#galactic_router")`
+`pass("50.4 binary file produces no hashtag autotags")`
+
+"The system learns to ignore the noise. It focuses on the signal. It is
+the difference between hearing a crowd and listening to a conversation."
+
+------------------------------------------------------------------------------
+IV. THE FINAL VERDICT
+------------------------------------------------------------------------------
+
+The rain struck the window again. The mechanical disk clicked, satisfied.
+Holmes closed the terminal.
+
+"v1.6 is not a revolution. It is a refinement. It allows us to watch the
+small things with the same intensity as the large. It allows us to read the
+history with greater depth."
+
+He picked up his pipe.
+
+"Let the ledger record that v1.6 did not just add features. It added
+precision. And in precision, there is peace."
+
+==============================================================================
+[END OF CHRONICLE — v1.6 FILE REPOS + EXTLOG]
+==============================================================================
